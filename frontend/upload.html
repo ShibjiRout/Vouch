@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocLense — Upload</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 480px;
+            padding: 2rem;
+        }
+        .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .brand-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+        .subtitle { font-size: 13px; color: #555; margin-bottom: 2rem; margin-left: 42px; }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #1e1e1e;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            font-size: 13px;
+            color: #555;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab.active { color: #e0e0e0; border-bottom-color: #3b82f6; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .dropzone {
+            border: 2px dashed #252525;
+            border-radius: 12px;
+            padding: 2.5rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+            background: #0e0e0e;
+        }
+        .dropzone:hover, .dropzone.dragover {
+            border-color: #3b82f6;
+            background: #0d1520;
+        }
+        .dropzone-icon {
+            width: 44px; height: 44px;
+            margin: 0 auto 12px;
+            background: #13203a;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .dropzone-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+        .dropzone-hint { font-size: 12px; color: #444; }
+
+        .file-info {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #111;
+            border-radius: 8px;
+            border: 1px solid #1e1e1e;
+            margin-bottom: 1rem;
+        }
+        .file-info.show { display: flex; }
+        .file-name { font-size: 13px; display: flex; align-items: center; gap: 8px; color: #bbb; }
+        .file-remove { background: none; border: none; color: #444; cursor: pointer; font-size: 18px; }
+        .file-remove:hover { color: #ef4444; }
+
+        .field { margin-bottom: 1rem; }
+        .field label { display: block; font-size: 12px; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .field input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #111;
+            border: 1px solid #1e1e1e;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-family: monospace;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .field input::placeholder { color: #333; }
+        .field input:focus { border-color: #3b82f6; }
+        .field-hint { font-size: 11px; color: #333; margin-top: 4px; }
+
+        .error-msg {
+            display: none;
+            font-size: 13px;
+            color: #ef4444;
+            margin-bottom: 1rem;
+            padding: 8px 12px;
+            background: #180808;
+            border-radius: 8px;
+            border: 1px solid #2a1010;
+        }
+        .error-msg.show { display: block; }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled { background: #1a1a2e; color: #333; cursor: not-allowed; transform: none; }
+
+        .enter-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+        .enter-row input {
+            flex: 1;
+            padding: 10px 12px;
+            background: #111;
+            border: 1px solid #1e1e1e;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-family: monospace;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .enter-row input::placeholder { color: #333; }
+        .enter-row input:focus { border-color: #3b82f6; }
+
+        .back-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 12px;
+            color: #444;
+        }
+        .back-link a { color: #3b82f6; text-decoration: none; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="brand">
+            <div class="brand-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" fill="white" opacity="0.9"/>
+                    <path d="M10 2l3 3h-3V2z" fill="white" opacity="0.5"/>
+                    <path d="M5 7h6M5 9.5h6M5 12h4" stroke="#3b82f6" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="logo">DocLense</div>
+        </div>
+        <div class="subtitle">Chat with your documents using AI</div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('upload')">Upload PDF</div>
+            <div class="tab" onclick="switchTab('enter')">I have an ID</div>
+        </div>
+
+        <div id="upload-panel" class="panel active">
+            <div class="dropzone" id="dropzone" onclick="fileInput.click()">
+                <div class="dropzone-icon">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 13V4m0 0L6.5 7.5M10 4l3.5 3.5" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M3 14v2a1 1 0 001 1h12a1 1 0 001-1v-2" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="dropzone-title">Drop your PDF here</div>
+                <div class="dropzone-hint">or click to browse</div>
+            </div>
+            <input type="file" id="fileInput" accept=".pdf" hidden>
+
+            <div class="file-info" id="fileInfo">
+                <span class="file-name">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#3b82f6" stroke-width="1.2"/><path d="M5 5h6M5 8h6M5 11h3" stroke="#3b82f6" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    <span id="fileName"></span>
+                </span>
+                <button class="file-remove" onclick="removeFile()">&times;</button>
+            </div>
+
+            <div class="field">
+                <label>Case ID</label>
+                <input type="text" id="caseIdInput" placeholder="TESL-42" maxlength="20">
+                <div class="field-hint">4 letters + dash + number &nbsp;·&nbsp; e.g. DOCS-1, TESL-99</div>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+            <button class="btn btn-primary" id="uploadBtn" onclick="uploadFile()" disabled>Upload & Start Chatting</button>
+        </div>
+
+        <div id="enter-panel" class="panel">
+            <div class="enter-row">
+                <input type="text" id="enterIdInput" placeholder="Enter your case ID (e.g. TESL-42)">
+            </div>
+            <div class="error-msg" id="enterErrorMsg"></div>
+            <button class="btn btn-primary" onclick="verifyAndChat()">Go to Chat</button>
+        </div>
+
+        <div class="back-link"><a href="index.html">← Back to home</a></div>
+    </div>
+
+    <script>
+        const API = '';
+        let selectedFile = null;
+        const fileInput = document.getElementById('fileInput');
+        const dropzone = document.getElementById('dropzone');
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            if (tab === 'upload') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('upload-panel').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('enter-panel').classList.add('active');
+            }
+        }
+
+        dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.pdf')) {
+                selectedFile = file;
+                showFile(file.name);
+            } else {
+                showError('errorMsg', 'Only PDF files are allowed');
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files[0]) {
+                selectedFile = fileInput.files[0];
+                showFile(selectedFile.name);
+            }
+        });
+
+        function showFile(name) {
+            document.getElementById('fileName').textContent = name;
+            document.getElementById('fileInfo').classList.add('show');
+            dropzone.style.display = 'none';
+            checkUploadReady();
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            fileInput.value = '';
+            document.getElementById('fileInfo').classList.remove('show');
+            dropzone.style.display = 'block';
+            checkUploadReady();
+        }
+
+        document.getElementById('caseIdInput').addEventListener('input', checkUploadReady);
+
+        function checkUploadReady() {
+            const id = document.getElementById('caseIdInput').value.trim();
+            const valid = /^[a-zA-Z]{4}-\d+$/.test(id);
+            document.getElementById('uploadBtn').disabled = !(selectedFile && valid);
+        }
+
+        function showError(elemId, msg) {
+            const el = document.getElementById(elemId);
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+
+        async function uploadFile() {
+            const caseId = document.getElementById('caseIdInput').value.trim();
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('case_id', caseId);
+
+            document.getElementById('uploadBtn').disabled = true;
+            document.getElementById('uploadBtn').textContent = 'Uploading...';
+            document.getElementById('errorMsg').classList.remove('show');
+
+            try {
+                const res = await fetch(`${API}/upload`, { method: 'POST', body: formData });
+                if (!res.ok) {
+                    const err = await res.json();
+                    showError('errorMsg', err.detail);
+                    document.getElementById('uploadBtn').disabled = false;
+                    document.getElementById('uploadBtn').textContent = 'Upload & Start Chatting';
+                    return;
+                }
+                const data = await res.json();
+                window.location.href = `chat.html?case_id=${data.case_id}&job_id=${data.job_id}`;
+            } catch (e) {
+                showError('errorMsg', 'Failed to connect to server');
+                document.getElementById('uploadBtn').disabled = false;
+                document.getElementById('uploadBtn').textContent = 'Upload & Start Chatting';
+            }
+        }
+
+        async function verifyAndChat() {
+            const caseId = document.getElementById('enterIdInput').value.trim();
+            if (!caseId) { showError('enterErrorMsg', 'Please enter a case ID'); return; }
+            try {
+                const res = await fetch(`${API}/verify/${caseId}`);
+                const data = await res.json();
+                if (data.valid) {
+                    window.location.href = `chat.html?case_id=${caseId}`;
+                } else {
+                    showError('enterErrorMsg', 'No documents found for this ID');
+                }
+            } catch (e) {
+                showError('enterErrorMsg', 'Failed to connect to server');
+            }
+        }
+
+        document.getElementById('enterIdInput').addEventListener('keydown', e => {
+            if (e.key === 'Enter') verifyAndChat();
+        });
+    </script>
+</body>
+</html>

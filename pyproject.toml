@@ -1,0 +1,28 @@
+[project]
+name = "04-doclense"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=4.8.4",
+    "dnspython>=2.8.0",
+    "fastapi>=0.136.1",
+    "langchain>=1.2.15",
+    "langchain-community>=0.4.1",
+    "langchain-openai>=1.2.1",
+    "langchain-text-splitters>=1.1.2",
+    "langgraph>=1.1.9",
+    "motor>=3.7.1",
+    "pandas>=3.0.2",
+    "pymongo[srv]>=4.17.0",
+    "pymupdf>=1.27.2.3",
+    "pypdf>=6.10.2",
+    "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.26",
+    "qdrant-client>=1.17.1",
+    "ragas>=0.4.3",
+    "redis>=7.4.0",
+    "rq>=2.8.0",
+    "uvicorn>=0.46.0",
+]

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocLense — AI Document Intelligence</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --blue: #3b82f6;
+            --indigo: #6366f1;
+            --bg: #080810;
+            --surface: #0e0e1a;
+            --border: #1a1a2e;
+            --text: #e2e8f0;
+            --muted: #64748b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* NAV */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(8,8,16,0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+        }
+        .nav-brand { display: flex; align-items: center; gap: 10px; }
+        .nav-icon {
+            width: 30px; height: 30px;
+            background: linear-gradient(135deg, var(--blue), var(--indigo));
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .nav-logo { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+        .nav-cta {
+            padding: 7px 18px;
+            background: linear-gradient(135deg, var(--blue), var(--indigo));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .nav-cta:hover { opacity: 0.85; transform: translateY(-1px); }
+
+        /* HERO */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 6rem 2rem 4rem;
+            position: relative;
+        }
+
+        .hero-glow {
+            position: absolute;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -60%);
+            pointer-events: none;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--blue);
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+        .hero-badge-dot {
+            width: 6px; height: 6px;
+            background: var(--blue);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.2rem, 6vw, 3.8rem);
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            line-height: 1.1;
+            margin-bottom: 1.2rem;
+            max-width: 700px;
+        }
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--blue), var(--indigo));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-desc {
+            font-size: 1.05rem;
+            color: var(--muted);
+            max-width: 480px;
+            line-height: 1.7;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .btn-hero {
+            padding: 13px 28px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-hero-primary {
+            background: linear-gradient(135deg, var(--blue), var(--indigo));
+            color: white;
+            border: none;
+        }
+        .btn-hero-primary:hover { opacity: 0.88; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(59,130,246,0.3); }
+        .btn-hero-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-hero-secondary:hover { border-color: #2a2a4a; background: var(--surface); }
+
+        /* FEATURE PREVIEW */
+        .preview {
+            margin-top: 4rem;
+            width: 100%;
+            max-width: 720px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .preview-bar {
+            padding: 10px 14px;
+            background: #0a0a18;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .preview-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .preview-dots { display: flex; gap: 6px; }
+        .preview-url {
+            flex: 1;
+            margin: 0 10px;
+            padding: 3px 10px;
+            background: #13131f;
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--muted);
+            font-family: monospace;
+        }
+        .preview-body { padding: 1.5rem; }
+        .chat-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start; }
+        .chat-row.user { flex-direction: row-reverse; }
+        .chat-avatar {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .chat-avatar.ai { background: linear-gradient(135deg, var(--blue), var(--indigo)); color: white; }
+        .chat-avatar.u { background: #1e1e30; color: var(--muted); }
+        .chat-bubble {
+            padding: 9px 13px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 80%;
+        }
+        .chat-bubble.ai { background: #13131f; border: 1px solid var(--border); border-bottom-left-radius: 3px; color: #c8d3e0; }
+        .chat-bubble.user { background: linear-gradient(135deg, var(--blue), var(--indigo)); color: white; border-bottom-right-radius: 3px; }
+        .chat-typing {
+            display: flex; gap: 4px; align-items: center; padding: 12px 14px;
+            background: #13131f; border: 1px solid var(--border);
+            border-radius: 12px; border-bottom-left-radius: 3px;
+            width: fit-content;
+        }
+        .chat-typing span {
+            width: 5px; height: 5px;
+            background: var(--muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+        .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+        .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+
+        /* FEATURES */
+        .features {
+            padding: 5rem 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .section-label {
+            text-align: center;
+            font-size: 12px;
+            color: var(--blue);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 0.75rem;
+        }
+        .section-title {
+            text-align: center;
+            font-size: clamp(1.5rem, 3vw, 2rem);
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 3rem;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+        .feature-card {
+            padding: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .feature-card:hover { border-color: #2a2a4a; transform: translateY(-3px); }
+        .feature-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem;
+        }
+        .feature-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+        .feature-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+        /* HOW IT WORKS */
+        .how {
+            padding: 5rem 2rem;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .steps { display: flex; flex-direction: column; gap: 0; }
+        .step {
+            display: flex;
+            gap: 1.5rem;
+            position: relative;
+        }
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 19px;
+            top: 44px;
+            width: 2px;
+            height: calc(100% - 12px);
+            background: var(--border);
+        }
+        .step-num {
+            width: 40px; height: 40px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--blue);
+            flex-shrink: 0;
+            z-index: 1;
+        }
+        .step-content { padding-bottom: 2.5rem; }
+        .step-content h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .step-content p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+        /* CTA */
+        .cta-section {
+            padding: 5rem 2rem;
+            text-align: center;
+        }
+        .cta-card {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-card::before {
+            content: '';
+            position: absolute;
+            top: -60px; left: 50%;
+            transform: translateX(-50%);
+            width: 300px; height: 150px;
+            background: radial-gradient(ellipse, rgba(59,130,246,0.15), transparent 70%);
+        }
+        .cta-card h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.75rem; letter-spacing: -0.5px; }
+        .cta-card p { font-size: 14px; color: var(--muted); margin-bottom: 1.5rem; }
+
+        /* FOOTER */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 1.5rem 2rem;
+            text-align: center;
+            font-size: 12px;
+            color: #2a2a4a;
+        }
+        footer span { color: var(--muted); }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="nav-brand">
+            <div class="nav-icon">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" fill="white" opacity="0.9"/>
+                    <path d="M10 2l3 3h-3V2z" fill="white" opacity="0.5"/>
+                </svg>
+            </div>
+            <span class="nav-logo">DocLense</span>
+        </div>
+        <a href="upload.html" class="nav-cta">Get Started →</a>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-glow"></div>
+        <div class="hero-badge">
+            <div class="hero-badge-dot"></div>
+            AI-Powered Document Intelligence
+        </div>
+        <h1>Ask questions.<br><span>Get answers</span> from your PDFs.</h1>
+        <p class="hero-desc">Upload any PDF and instantly chat with its contents. DocLense uses AI to find precise answers from your documents in seconds.</p>
+        <div class="hero-actions">
+            <a href="upload.html" class="btn-hero btn-hero-primary">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 11V3m0 0L5 6m3-3l3 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Upload a PDF
+            </a>
+            <a href="upload.html#enter" class="btn-hero btn-hero-secondary">I have a Case ID</a>
+        </div>
+
+        <div class="preview">
+            <div class="preview-bar">
+                <div class="preview-dots">
+                    <div class="preview-dot" style="background:#ef4444"></div>
+                    <div class="preview-dot" style="background:#f59e0b"></div>
+                    <div class="preview-dot" style="background:#22c55e"></div>
+                </div>
+                <div class="preview-url">localhost:8000/chat.html?case_id=TESL-42</div>
+            </div>
+            <div class="preview-body">
+                <div class="chat-row user">
+                    <div class="chat-avatar u">U</div>
+                    <div class="chat-bubble user">What was Tesla's total revenue in 2023?</div>
+                </div>
+                <div class="chat-row">
+                    <div class="chat-avatar ai">AI</div>
+                    <div class="chat-bubble ai">According to the annual report, Tesla's total revenue for 2023 was <strong>$96.77 billion</strong>, representing a 19% increase year-over-year driven primarily by automotive sales and energy generation.</div>
+                </div>
+                <div class="chat-row user">
+                    <div class="chat-avatar u">U</div>
+                    <div class="chat-bubble user">What are the key risk factors mentioned?</div>
+                </div>
+                <div class="chat-row">
+                    <div class="chat-avatar ai">AI</div>
+                    <div class="chat-typing"><span></span><span></span><span></span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="section-label">Features</div>
+        <div class="section-title">Everything you need to understand your documents</div>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon" style="background: rgba(59,130,246,0.1);">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2z" stroke="#3b82f6" stroke-width="1.5"/><path d="M10 6v4l3 3" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </div>
+                <h3>Instant Processing</h3>
+                <p>Upload your PDF and start chatting immediately. Documents are indexed in the background while you ask questions.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon" style="background: rgba(99,102,241,0.1);">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M9 3H4a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1v-5" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round"/><path d="M14 2l4 4-7 7H7v-4l7-7z" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h3>Source-Grounded Answers</h3>
+                <p>Every answer is derived directly from your uploaded documents — no hallucinations, no guessing.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon" style="background: rgba(34,197,94,0.1);">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M4 6h12M4 14h7" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </div>
+                <h3>Multi-Document Support</h3>
+                <p>Upload multiple PDFs under a single Case ID. Ask questions that span across all your files simultaneously.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon" style="background: rgba(245,158,11,0.1);">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3v4M10 13v4M3 10h4M13 10h4" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="10" r="3" stroke="#f59e0b" stroke-width="1.5"/></svg>
+                </div>
+                <h3>Case ID System</h3>
+                <p>Organize documents by Case ID. Share your ID with teammates to collaborate on the same document set.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon" style="background: rgba(239,68,68,0.1);">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17 10A7 7 0 113 10a7 7 0 0114 0z" stroke="#ef4444" stroke-width="1.5"/><path d="M10 7v3l2 2" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </div>
+                <h3>Chat History</h3>
+                <p>Your conversation history is saved. Come back later and pick up right where you left off.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon" style="background: rgba(139,92,246,0.1);">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1" stroke="#8b5cf6" stroke-width="1.5"/><rect x="11" y="3" width="6" height="6" rx="1" stroke="#8b5cf6" stroke-width="1.5"/><rect x="3" y="11" width="6" height="6" rx="1" stroke="#8b5cf6" stroke-width="1.5"/><rect x="11" y="11" width="6" height="6" rx="1" stroke="#8b5cf6" stroke-width="1.5"/></svg>
+                </div>
+                <h3>Vector Search</h3>
+                <p>Powered by Qdrant vector database for semantic search — finds relevant passages even when phrased differently.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="how">
+        <div class="section-label">How It Works</div>
+        <div class="section-title">Up and running in 3 steps</div>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h3>Upload your PDF</h3>
+                    <p>Choose a PDF file and assign it a Case ID (e.g. TESL-42). Your document is processed and indexed in the background using vector embeddings.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h3>Ask your questions</h3>
+                    <p>Type any question in natural language. DocLense searches your document semantically and retrieves the most relevant passages.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <h3>Get precise answers</h3>
+                    <p>The AI synthesizes an answer using only what's in your document — grounded, accurate, and citable.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="cta-card">
+            <h2>Ready to get started?</h2>
+            <p>Upload your first PDF and ask your first question in under a minute.</p>
+            <a href="upload.html" class="btn-hero btn-hero-primary" style="display:inline-flex;">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 11V3m0 0L5 6m3-3l3 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Upload a PDF — it's free
+            </a>
+        </div>
+    </section>
+
+    <footer>
+        <span>DocLense &nbsp;·&nbsp; AI Document Intelligence &nbsp;·&nbsp; Built with FastAPI, Qdrant & OpenAI</span>
+    </footer>
+
+</body>
+</html>

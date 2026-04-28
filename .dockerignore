@@ -1,0 +1,12 @@
+.venv
+__pycache__
+*.pyc
+.env
+.git
+.gitignore
+.python-version
+scripts/
+temp_uploads/
+*.csv
+*.md
+test_mongo.py

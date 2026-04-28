@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[oc]
+*.pyo
+build/
+dist/
+wheels/
+*.egg-info
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Temp uploads
+temp_uploads/
+
+# uv
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.tar
+
+# Logs
+*.log
+logs/
+
+# Test / evaluation output
+rag_evaluation_results.csv
+test_mongo.py
+print(client.server_info()['version'])Unable
+scripts/
+
+# Azure / deployment
+*.pfx
+*.pem
