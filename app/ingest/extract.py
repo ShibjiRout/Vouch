@@ -19,6 +19,12 @@ MAX_COLUMNS = 15
 MIN_FILL_RATIO = 0.5
 MIN_AVG_CELL_LENGTH = 2
 
+# A long financial table is often detected as a stack of small ones,
+# which strips the column headers off every part but the first.
+# Regions this close together, sharing a column span, are one table.
+MERGE_MAX_GAP = 25
+MERGE_MIN_OVERLAP = 0.5
+
 
 @dataclass
 class Block:
@@ -51,6 +57,40 @@ def is_real_table(rows: list[list]) -> bool:
         columns <= MAX_COLUMNS
         and fill_ratio >= MIN_FILL_RATIO
         and avg_length >= MIN_AVG_CELL_LENGTH
+    )
+
+
+def _merge_adjacent(tables: list) -> list[list]:
+    """Group detected regions that are really one table."""
+    if not tables:
+        return []
+
+    tables = sorted(tables, key=lambda t: t.bbox[1])
+    groups = [[tables[0]]]
+
+    for table in tables[1:]:
+        px0, _, px1, pbottom = groups[-1][-1].bbox
+        x0, top, x1, _ = table.bbox
+
+        overlap = min(px1, x1) - max(px0, x0)
+        narrower = min(px1 - px0, x1 - x0)
+        share = overlap / narrower if narrower > 0 else 0
+
+        if top - pbottom <= MERGE_MAX_GAP and share >= MERGE_MIN_OVERLAP:
+            groups[-1].append(table)
+        else:
+            groups.append([table])
+
+    return groups
+
+
+def _union(bboxes: list[tuple]) -> tuple:
+    """Smallest box containing all of them."""
+    return (
+        min(b[0] for b in bboxes),
+        min(b[1] for b in bboxes),
+        max(b[2] for b in bboxes),
+        max(b[3] for b in bboxes),
     )
 
 
@@ -106,16 +146,17 @@ def extract(path: str) -> tuple[list[Block], int]:
         for number, page in enumerate(pdf.pages, start=1):
             bboxes = []
 
-            for table in page.find_tables():
-                rows = table.extract()
+            for group in _merge_adjacent(page.find_tables()):
+                rows = [row for table in group for row in (table.extract() or [])]
                 if not is_real_table(rows):
                     # Left in the page text, since it is prose or a figure.
                     continue
 
-                text = _table_to_text(rows, _caption(page, table.bbox))
+                bbox = _union([table.bbox for table in group])
+                text = _table_to_text(rows, _caption(page, bbox))
                 if text:
                     blocks.append(Block("table", number, text))
-                    bboxes.append(table.bbox)
+                    bboxes.append(bbox)
 
             # Words inside an accepted table are dropped here so the same
             # figures do not appear twice, once as prose and once as a table.
