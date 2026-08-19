@@ -1,51 +1,89 @@
+"""RQ task: read a PDF, chunk it, embed it, store it."""
+
 import os
-import time
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from app.config import CHUNK_SIZE, CHUNK_OVERLAP
-from app.services.embedding_service import get_embeddings_batch
-from app.services.qdrant_service import store_chunks, create_collection
+from uuid import UUID
+
+from app.db import postgres as db
+from app.db.qdrant import upsert_chunks
+from app.ingest.chunk import chunk_blocks
+from app.ingest.embed import embed_texts
+from app.ingest.extract import extract
+from app.logging_config import get_logger, setup_logging
+
+log = get_logger(__name__)
 
 
-def process_pdf_task(case_id: str, file_path: str):
+def _set_status(document_id: UUID, tenant_id: UUID, status: str, **fields) -> None:
+    """Move a document to a new status, scoped to its tenant."""
+    # Column names come from keyword arguments written in this file,
+    # never from user input. Values are always parameterised.
+    columns = ", ".join(f"{key} = %s" for key in fields)
+    sets = f"status = %s{', ' + columns if columns else ''}"
+    db.execute(
+        f"UPDATE documents SET {sets} "
+        "WHERE document_id = %s AND tenant_id = %s",
+        (status, *fields.values(), document_id, tenant_id),
+    )
+
+
+def process_pdf_task(
+    document_id: str,
+    tenant_id: str,
+    thread_id: str,
+    filename: str,
+    file_path: str,
+) -> None:
+    """Take one uploaded PDF from pending to ready."""
+    setup_logging()
+    db.pool.open()
+
+    document_id = UUID(document_id)
+    tenant_id = UUID(tenant_id)
+    thread_id = UUID(thread_id)
+
     try:
-        # Step 1: Read the PDF
-        try:
-            loader = PyPDFLoader(file_path)
-            documents = loader.load()
-        except Exception as e:
-            raise Exception(f"Failed to read PDF: {e}")
+        _set_status(document_id, tenant_id, "processing")
+        log.info("processing %s doc=%s", filename, document_id)
 
-        # Step 2: Chop into pieces
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=CHUNK_SIZE,
-            chunk_overlap=CHUNK_OVERLAP
+        blocks, page_count = extract(file_path)
+        chunks = chunk_blocks(blocks)
+
+        if not chunks:
+            # No text at all almost always means a scanned image.
+            raise ValueError("Could not read this PDF, it may be a scan")
+
+        vectors = embed_texts([chunk.text for chunk in chunks])
+
+        upsert_chunks(
+            tenant_id=tenant_id,
+            thread_id=thread_id,
+            document_id=document_id,
+            filename=filename,
+            chunks=chunks,
+            vectors=vectors,
         )
-        chunks = splitter.split_documents(documents)
-        texts = [chunk.page_content for chunk in chunks]
 
-        if not texts:
-            raise ValueError("PDF had no readable text")
+        _set_status(
+            document_id,
+            tenant_id,
+            "ready",
+            chunk_count=len(chunks),
+            page_count=page_count,
+            error_message=None,
+        )
+        log.info(
+            "ready doc=%s pages=%s chunks=%s tables=%s",
+            document_id,
+            page_count,
+            len(chunks),
+            sum(1 for c in chunks if c.chunk_type == "table"),
+        )
 
-        # Step 3: Turn text into numbers (BATCHED)
-        try:
-            vectors = []
-            batch_size = 50
-
-            for i in range(0, len(texts), batch_size):
-                batch_texts = texts[i:i + batch_size]
-                batch_vectors = get_embeddings_batch(batch_texts)
-                vectors.extend(batch_vectors)
-                time.sleep(0.5)
-        except Exception as e:
-            raise Exception(f"Failed to generate embeddings: {e}")
-
-        # Step 4: File them in Qdrant
-        try:
-            create_collection()
-            store_chunks(case_id, texts, vectors)
-        except Exception as e:
-            raise Exception(f"Failed to store in Qdrant: {e}")
+    except Exception as exc:
+        # The message reaches the user, so it has to say what to do.
+        log.exception("failed doc=%s", document_id)
+        _set_status(document_id, tenant_id, "failed", error_message=str(exc)[:500])
+        raise
 
     finally:
         if os.path.exists(file_path):

@@ -1,7 +1,10 @@
 """Postgres connection pool and query helpers."""
 
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Generator
 
+from psycopg import Cursor
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -43,3 +46,10 @@ def execute(sql: str, params: tuple = ()) -> int:
     with pool.connection() as conn, conn.cursor() as cur:
         cur.execute(sql, params)
         return cur.rowcount
+
+
+@contextmanager
+def transaction() -> Generator[Cursor, None, None]:
+    """Run several statements atomically. All commit, or none do."""
+    with pool.connection() as conn, conn.cursor() as cur:
+        yield cur

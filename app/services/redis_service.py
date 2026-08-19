@@ -1,4 +1,4 @@
-﻿import redis
+import redis
 import rq
 from rq import Queue
 from app.config import REDIS_URL

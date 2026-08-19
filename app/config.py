@@ -15,6 +15,13 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # ---------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_MINUTES = int(os.getenv("JWT_EXPIRY_MINUTES", "60"))
+
+# ---------------------------------------------------------------
 # Observability
 # ---------------------------------------------------------------
 # LangChain and LangGraph read these from the environment themselves —
@@ -32,6 +39,15 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 COLLECTION_NAME = "documents"
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIM = 1536
+
+# ---------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------
+# Routing and small talk on the cheap model; answers on the retrieval
+# path go to the larger one, where a misread table becomes a
+# confidently wrong number. Chosen by path, never by a grade.
+CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
+ANSWER_MODEL = os.getenv("ANSWER_MODEL", "gpt-4o")
 
 # Named vectors. The collection carries both from the start so that
 # adding BM25 in phase 5 does not mean rebuilding the collection.
