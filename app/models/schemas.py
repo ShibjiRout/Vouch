@@ -101,3 +101,29 @@ class DocumentOut(BaseModel):
     page_count: int | None
     error_message: str | None
     created_at: datetime
+
+
+# ---------------------------------------------------------------
+# Chat
+# ---------------------------------------------------------------
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class Source(BaseModel):
+    filename: str
+    page: int
+    text: str
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: list[Source]
+
+
+class MessageOut(BaseModel):
+    role: str
+    content: str
+    sources: list[Source] = []

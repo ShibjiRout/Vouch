@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, documents, threads, users
+from app.api.routes import auth, chat, documents, threads, users
 from app.db import postgres as db
 from app.db.qdrant import ensure_collection
 from app.logging_config import get_logger, setup_logging
@@ -42,6 +42,7 @@ app.include_router(auth.router)
 app.include_router(threads.router)
 app.include_router(documents.router)
 app.include_router(users.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")
