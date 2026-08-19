@@ -53,6 +53,7 @@ ANSWER_MODEL = os.getenv("ANSWER_MODEL", "gpt-4o")
 # adding BM25 in phase 5 does not mean rebuilding the collection.
 DENSE_VECTOR = "dense"
 SPARSE_VECTOR = "sparse"
+SPARSE_MODEL = os.getenv("SPARSE_MODEL", "Qdrant/bm25")
 
 # ---------------------------------------------------------------
 # Chunking

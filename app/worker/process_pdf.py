@@ -6,7 +6,7 @@ from uuid import UUID
 from app.db import postgres as db
 from app.db.qdrant import upsert_chunks
 from app.ingest.chunk import chunk_blocks
-from app.ingest.embed import embed_texts
+from app.ingest.embed import embed_texts, sparse_texts
 from app.ingest.extract import extract
 from app.logging_config import get_logger, setup_logging
 
@@ -52,7 +52,9 @@ def process_pdf_task(
             # No text at all almost always means a scanned image.
             raise ValueError("Could not read this PDF, it may be a scan")
 
-        vectors = embed_texts([chunk.text for chunk in chunks])
+        texts = [chunk.text for chunk in chunks]
+        vectors = embed_texts(texts)
+        sparse = sparse_texts(texts)
 
         upsert_chunks(
             tenant_id=tenant_id,
@@ -61,6 +63,7 @@ def process_pdf_task(
             filename=filename,
             chunks=chunks,
             vectors=vectors,
+            sparse=sparse,
         )
 
         _set_status(

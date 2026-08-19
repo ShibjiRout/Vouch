@@ -1,11 +1,18 @@
-"""Search a chat's chunks. Dense only for now."""
+"""Search a chat's chunks: dense and BM25, merged with RRF."""
 
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.config import COLLECTION_NAME, DENSE_VECTOR, FETCH_LIMIT
+from qdrant_client import models
+
+from app.config import (
+    COLLECTION_NAME,
+    DENSE_VECTOR,
+    FETCH_LIMIT,
+    SPARSE_VECTOR,
+)
 from app.db.qdrant import client, search_filter
-from app.ingest.embed import embed_query
+from app.ingest.embed import embed_query, sparse_query
 from app.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -30,11 +37,22 @@ def search(
     limit: int = FETCH_LIMIT,
 ) -> list[Hit]:
     """Find the chunks in this chat most like the question."""
+    # Both searches run every time. Dense understands meaning; BM25
+    # finds exact strings like "Note 14" or a specific figure, which
+    # carry little meaning on their own.
     results = client.query_points(
         collection_name=COLLECTION_NAME,
-        query=embed_query(question),
-        using=DENSE_VECTOR,
-        # Both keys, always. Neither is optional.
+        prefetch=[
+            models.Prefetch(
+                query=embed_query(question), using=DENSE_VECTOR, limit=limit
+            ),
+            models.Prefetch(
+                query=sparse_query(question), using=SPARSE_VECTOR, limit=limit
+            ),
+        ],
+        # The two score on different scales, so RRF throws the scores
+        # away and merges on position instead.
+        query=models.FusionQuery(fusion=models.Fusion.RRF),
         query_filter=search_filter(tenant_id, thread_id),
         limit=limit,
     )
