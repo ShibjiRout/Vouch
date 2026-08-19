@@ -50,3 +50,7 @@ scripts/
 # Azure / deployment
 *.pfx
 *.pem
+
+# Claude
+claude_data/
+CLAUDE.md
