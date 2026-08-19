@@ -65,9 +65,11 @@ def upsert_chunks(
     chunks: list,
     vectors: list[list[float]],
     sparse: list | None = None,
+    contexts: list[str] | None = None,
 ) -> None:
     """Write a document's chunks, carrying both scope keys."""
     sparse = sparse or [None] * len(chunks)
+    contexts = contexts or [""] * len(chunks)
     points = [
         models.PointStruct(
             id=str(uuid4()),
@@ -84,10 +86,13 @@ def upsert_chunks(
                 "page": chunk.page,
                 "chunk_index": chunk.chunk_index,
                 "chunk_type": chunk.chunk_type,
+                "context": context,
                 "text": chunk.text,
             },
         )
-        for chunk, vector, sparse_vector in zip(chunks, vectors, sparse)
+        for chunk, vector, sparse_vector, context in zip(
+            chunks, vectors, sparse, contexts
+        )
     ]
 
     # Batched so one oversized request cannot fail a whole document.

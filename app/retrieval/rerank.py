@@ -38,7 +38,10 @@ def rerank(question: str, hits: list[Hit], top_k: int = FINAL_K) -> list[Hit]:
     if not hits:
         return []
 
-    scores = list(_encoder().rerank(question, [hit.text for hit in hits]))
+    # The context line is what says which population or period a chunk
+    # covers, so the reranker must read it too. Scoring the raw text
+    # throws away the one thing that separates near-identical tables.
+    scores = list(_encoder().rerank(question, [hit.for_ranking for hit in hits]))
 
     ranked = sorted(zip(scores, hits), key=lambda pair: pair[0], reverse=True)
     best = [
@@ -48,6 +51,7 @@ def rerank(question: str, hits: list[Hit], top_k: int = FINAL_K) -> list[Hit]:
             page=hit.page,
             document_id=hit.document_id,
             chunk_type=hit.chunk_type,
+            context=hit.context,
             # The cross-encoder's scale, not the search scale. Raw
             # logits, roughly -11 to +11.
             score=float(score),

@@ -5,7 +5,9 @@ from uuid import UUID
 
 from app.db import postgres as db
 from app.db.qdrant import upsert_chunks
+from app.config import CONTEXT_LINE_ENABLED
 from app.ingest.chunk import chunk_blocks
+from app.ingest.context import add_context
 from app.ingest.embed import embed_texts, sparse_texts
 from app.ingest.extract import extract
 from app.logging_config import get_logger, setup_logging
@@ -52,7 +54,13 @@ def process_pdf_task(
             # No text at all almost always means a scanned image.
             raise ValueError("Could not read this PDF, it may be a scan")
 
-        texts = [chunk.text for chunk in chunks]
+        # The context line goes in front of the text before embedding,
+        # so the stored vector carries it. Payload keeps them apart.
+        contexts = add_context(chunks) if CONTEXT_LINE_ENABLED else [""] * len(chunks)
+        texts = [
+            f"{line}\n{chunk.text}" if line else chunk.text
+            for line, chunk in zip(contexts, chunks)
+        ]
         vectors = embed_texts(texts)
         sparse = sparse_texts(texts)
 
@@ -64,6 +72,7 @@ def process_pdf_task(
             chunks=chunks,
             vectors=vectors,
             sparse=sparse,
+            contexts=contexts,
         )
 
         _set_status(

@@ -28,6 +28,12 @@ class Hit:
     document_id: str
     chunk_type: str
     score: float
+    context: str = ""
+
+    @property
+    def for_ranking(self) -> str:
+        """Text as the reranker should read it, context line included."""
+        return f"{self.context}\n{self.text}" if self.context else self.text
 
 
 def search(
@@ -65,6 +71,7 @@ def search(
             document_id=point.payload["document_id"],
             chunk_type=point.payload["chunk_type"],
             score=point.score,
+            context=point.payload.get("context", ""),
         )
         for point in results.points
     ]
