@@ -6,8 +6,12 @@ from uuid import UUID
 from langchain_core.tools import tool
 from langgraph.config import get_config
 
-from app.config import FINAL_K
+from app.config import FINAL_K, MIN_SCORE
+from app.logging_config import get_logger
 from app.retrieval.hybrid import Hit, search
+from app.retrieval.rerank import rerank
+
+log = get_logger(__name__)
 
 CHUNK_RE = re.compile(
     r'<chunk filename="(?P<filename>[^"]*)" page="(?P<page>\d+)">\n'
@@ -50,5 +54,18 @@ def search_documents(query: str) -> str:
     tenant_id = UUID(str(configurable["tenant_id"]))
     thread_id = UUID(str(configurable["thread_id"]))
 
-    hits = search(query, tenant_id, thread_id)
-    return format_hits(hits[:FINAL_K])
+    candidates = search(query, tenant_id, thread_id)
+    hits = rerank(query, candidates, top_k=FINAL_K)
+
+    # Weak results are worse than none: answering from them produces a
+    # confident wrong figure, which is the failure this cannot afford.
+    if hits and hits[0].score < MIN_SCORE:
+        log.info(
+            "refused thread=%s top=%.2f below MIN_SCORE=%s",
+            thread_id,
+            hits[0].score,
+            MIN_SCORE,
+        )
+        return "NO_RESULTS"
+
+    return format_hits(hits)

@@ -64,7 +64,7 @@ CHUNK_OVERLAP = 200
 # ---------------------------------------------------------------
 # Retrieval
 # ---------------------------------------------------------------
-FETCH_LIMIT = int(os.getenv("FETCH_LIMIT", "20"))
+FETCH_LIMIT = int(os.getenv("FETCH_LIMIT", "30"))
 FINAL_K = int(os.getenv("FINAL_K", "5"))
 RERANK_MODEL = os.getenv("RERANK_MODEL", "Xenova/ms-marco-MiniLM-L-6-v2")
 

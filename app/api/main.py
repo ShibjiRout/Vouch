@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import auth, chat, documents, threads, users
 from app.db import postgres as db
 from app.db.qdrant import ensure_collection
+from app.retrieval.rerank import warm
 from app.logging_config import get_logger, setup_logging
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
@@ -24,6 +25,7 @@ async def lifespan(_: FastAPI):
     db.pool.open()
     db.apply_schema()
     ensure_collection()
+    warm()
     log.info("startup complete")
     yield
     db.pool.close()
