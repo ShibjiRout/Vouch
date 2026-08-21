@@ -41,10 +41,10 @@ Thumbs.db
 *.log
 logs/
 
-# Test / evaluation output
-rag_evaluation_results.csv
-test_mongo.py
-print(client.server_info()['version'])Unable
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 scripts/
 
 # Azure / deployment
@@ -54,5 +54,8 @@ scripts/
 # Claude
 claude_data/
 CLAUDE.md
-# Eval fixtures - local only
+
+# Eval fixtures and output - local only
 test_data/
+eval/*.json
+eval/results/

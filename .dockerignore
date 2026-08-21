@@ -1,12 +1,35 @@
-.venv
+# Python
 __pycache__
 *.pyc
+*.pyo
+.venv
+.python-version
+
+# Secrets and local config
 .env
+.env.*
+
+# Version control
 .git
 .gitignore
-.python-version
-scripts/
-temp_uploads/
-*.csv
+.dockerignore
+
+# Not needed at runtime
+tests/
+eval/
+test_data/
+claude_data/
+CLAUDE.md
+.claude/
 *.md
-test_mongo.py
+*.pdf
+*.csv
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local state
+temp_uploads/
+scripts/
