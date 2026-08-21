@@ -54,3 +54,5 @@ scripts/
 # Claude
 claude_data/
 CLAUDE.md
+# Eval fixtures - local only
+test_data/

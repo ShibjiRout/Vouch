@@ -20,6 +20,34 @@ log = get_logger(__name__)
 # full history; only the tail is sent.
 HISTORY_LIMIT = 12
 
+
+def _recent(messages: list) -> list:
+    """The tail of the conversation, carrying only this turn's chunks.
+
+    Older tool results are dropped, not trimmed. Keeping them leaves
+    stale chunks from previous questions in context, and the model
+    answers by blending figures across them - it invented an operating
+    profit that appears nowhere in the document while the correct
+    chunk sat at rank one.
+
+    Dropping a tool message also means dropping the tool_calls that
+    requested it, or the request is left dangling and rejected.
+    """
+    starts = [i for i, m in enumerate(messages) if m.type == "human"]
+    if not starts:
+        return messages[-HISTORY_LIMIT:]
+
+    history, current = messages[: starts[-1]], messages[starts[-1] :]
+
+    kept = [
+        m
+        for m in history
+        if m.type == "human"
+        or (m.type == "ai" and m.content and not getattr(m, "tool_calls", None))
+    ]
+    return kept[-HISTORY_LIMIT:] + current
+
+
 _router = ChatOpenAI(
     model=CHAT_MODEL, temperature=0, api_key=OPENAI_API_KEY
 ).bind_tools([search_documents])
@@ -48,7 +76,7 @@ def agent(state: MessagesState) -> dict:
     if searched >= MAX_TOOL_ITERATIONS:
         model = ChatOpenAI(model=ANSWER_MODEL, temperature=0, api_key=OPENAI_API_KEY)
 
-    reply = model.invoke([SystemMessage(SYSTEM_PROMPT), *messages[-HISTORY_LIMIT:]])
+    reply = model.invoke([SystemMessage(SYSTEM_PROMPT), *_recent(messages)])
 
     log.info(
         "agent model=%s searches=%s tool_calls=%s",
