@@ -1,41 +1,48 @@
-"""The agent node."""
+"""The graph nodes.
+
+Two nodes. `agent` decides whether to search and writes the answer,
+`search` fetches chunks.
+
+Memory is not a node. Extraction used to run as one, and it cost four
+to seven seconds on every turn - once a hundred and fifty-eight -
+against an answer that was ready in under three. It now runs in a
+background thread after the graph has returned, so the user never waits
+for it. See app/graph/memory.py.
+"""
 
 from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState
 
-from app.config import (
-    ANSWER_MODEL,
-    CHAT_MODEL,
-    MAX_TOOL_ITERATIONS,
-    OPENAI_API_KEY,
-)
+from app.config import ANSWER_MODEL, MAX_TOOL_ITERATIONS, OPENAI_API_KEY
+from app.graph.memory import recall, render
 from app.graph.prompts import SYSTEM_PROMPT
 from app.graph.tools import search_documents
 from app.logging_config import get_logger
 
 log = get_logger(__name__)
 
-# How many past messages reach the model. The checkpointer keeps the
-# full history; only the tail is sent.
-HISTORY_LIMIT = 12
+# One previous exchange. Enough for "and what about last year", short
+# enough not to look like a template the model should continue.
+HISTORY_LIMIT = 2
+
+_llm = ChatOpenAI(model=ANSWER_MODEL, temperature=0, api_key=OPENAI_API_KEY)
+_with_tool = _llm.bind_tools([search_documents])
 
 
 def _recent(messages: list) -> list:
-    """The tail of the conversation, carrying only this turn's chunks.
+    """The current turn, and the one exchange before it.
 
-    Older tool results are dropped, not trimmed. Keeping them leaves
-    stale chunks from previous questions in context, and the model
-    answers by blending figures across them - it invented an operating
-    profit that appears nowhere in the document while the correct
-    chunk sat at rank one.
-
-    Dropping a tool message also means dropping the tool_calls that
-    requested it, or the request is left dangling and rejected.
+    Older tool results are dropped rather than trimmed. Keeping them
+    leaves stale chunks from earlier questions in context and the model
+    blends figures across them. Dropping a tool message also means
+    dropping the tool_calls that asked for it, or the request dangles
+    and the API rejects it.
     """
     starts = [i for i, m in enumerate(messages) if m.type == "human"]
     if not starts:
-        return messages[-HISTORY_LIMIT:]
+        return messages
 
     history, current = messages[: starts[-1]], messages[starts[-1] :]
 
@@ -48,40 +55,62 @@ def _recent(messages: list) -> list:
     return kept[-HISTORY_LIMIT:] + current
 
 
-_router = ChatOpenAI(
-    model=CHAT_MODEL, temperature=0, api_key=OPENAI_API_KEY
-).bind_tools([search_documents])
-
-_answerer = ChatOpenAI(
-    model=ANSWER_MODEL, temperature=0, api_key=OPENAI_API_KEY
-).bind_tools([search_documents])
-
-
 def _searches_so_far(messages: list) -> int:
-    """How many times the tool has already run this turn."""
-    return sum(1 for message in messages if isinstance(message, ToolMessage))
+    """How many searches have run since the current question.
+
+    Counting the whole conversation instead withdraws the tool for good
+    once a thread has run MAX_TOOL_ITERATIONS searches in total. The
+    model then says it needs to search while having nothing to call.
+    """
+    starts = [i for i, m in enumerate(messages) if m.type == "human"]
+    turn = messages[starts[-1] :] if starts else messages
+    return sum(1 for message in turn if isinstance(message, ToolMessage))
 
 
-def agent(state: MessagesState) -> dict:
-    """Decide whether to search, or write the final answer."""
+def _question(messages: list) -> str:
+    """The question being answered."""
+    for message in reversed(messages):
+        if message.type == "human":
+            return str(message.content)
+    return ""
+
+
+def agent(state: MessagesState, config: RunnableConfig) -> dict:
+    """Decide whether to search, or write the answer."""
     messages = state["messages"]
     searched = _searches_so_far(messages)
 
-    # Model by path, not by a grade of a previous answer. Routing and
-    # small talk are cheap; a misread table is not.
-    model = _answerer if searched else _router
+    # At the cap the tool is withheld, so the model answers with what it
+    # has rather than looping.
+    model = _llm if searched >= MAX_TOOL_ITERATIONS else _with_tool
 
-    # Once the cap is reached the tool is taken away, so the model has
-    # to answer with what it has instead of looping.
-    if searched >= MAX_TOOL_ITERATIONS:
-        model = ChatOpenAI(model=ANSWER_MODEL, temperature=0, api_key=OPENAI_API_KEY)
+    prompt = [SystemMessage(SYSTEM_PROMPT)]
+    thread_id = config["configurable"]["thread_id"]
+    known = render(recall(thread_id, _question(messages)))
+    if known:
+        prompt.append(SystemMessage(known))
+    prompt += _recent(messages)
 
-    reply = model.invoke([SystemMessage(SYSTEM_PROMPT), *_recent(messages)])
+    reply = model.invoke(prompt)
 
     log.info(
-        "agent model=%s searches=%s tool_calls=%s",
-        ANSWER_MODEL if searched else CHAT_MODEL,
+        "agent searches=%s recalled=%s tool_calls=%s",
         searched,
+        bool(known),
         len(getattr(reply, "tool_calls", []) or []),
     )
     return {"messages": [reply]}
+
+
+def search(state: MessagesState) -> dict:
+    """Fetch chunks for whatever the agent asked."""
+    last = state["messages"][-1]
+    return {
+        "messages": [
+            ToolMessage(
+                content=search_documents.invoke(call["args"]),
+                tool_call_id=call["id"],
+            )
+            for call in last.tool_calls
+        ]
+    }

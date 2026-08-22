@@ -8,6 +8,7 @@ from app.api.routes.threads import get_owned_thread
 from app.auth.deps import CurrentUser, get_current_user
 from app.db import postgres as db
 from app.graph.builder import get_graph
+from app.graph.memory import remember_later
 from app.graph.tools import parse_chunks
 from app.logging_config import get_logger
 from app.models.schemas import ChatRequest, ChatResponse, MessageOut, Source
@@ -61,6 +62,17 @@ def chat(
     # Only the chunks from this turn, not every search in the thread.
     turn = messages[_last_user_index(messages) :]
     sources = _sources_from(turn)
+
+    # Queued after the answer is written, so the user never waits for
+    # extraction. It used to be a graph node and cost 4-7s per turn.
+    #
+    # Never let this fail the request. The answer is already written; a
+    # forgotten fact costs one extra search on a later question, while
+    # a raised exception costs the user the answer they just waited for.
+    try:
+        remember_later(turn, str(thread_id))
+    except Exception:
+        log.warning("could not queue extraction for thread %s", thread_id)
 
     db.execute(
         "UPDATE threads SET last_msg_at = now() "

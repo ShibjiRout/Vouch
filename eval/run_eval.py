@@ -68,9 +68,11 @@ def evaluate(case: dict, tenant: uuid.UUID, thread: uuid.UUID, client=None) -> d
     result["pages"] = [h.page for h in hits]
 
     if client is not None:
-        response = client["post"](case["question"])
-        result["answer"] = response
-        result["correct"] = found_in(response, wanted)
+        result["answer"] = client["post"](case["question"])
+        result["correct"] = found_in(result["answer"], wanted)
+        # Read from the graph rather than the response: a search that
+        # returned nothing still ran, but produces no sources.
+        result["searches"] = client["searches"]()
 
     return result
 
@@ -103,12 +105,30 @@ def main() -> None:
             (tenant,),
         )
         token = create_access_token(user["user_id"], user["tenant_id"], user["role"])
+        from app.graph.builder import get_graph
+
         api = TestClient(app)
         headers = {"Authorization": f"Bearer {token}"}
+        graph = get_graph()
+        scope = {
+            "configurable": {
+                "thread_id": str(args.thread),
+                "tenant_id": str(tenant),
+            }
+        }
+
+        def searches_last_turn() -> int:
+            """Tool calls made answering the most recent question."""
+            messages = graph.get_state(scope).values.get("messages", [])
+            starts = [i for i, m in enumerate(messages) if m.type == "human"]
+            turn = messages[starts[-1] :] if starts else messages
+            return sum(1 for m in turn if m.type == "tool")
+
         client = {
             "post": lambda q: api.post(
                 f"/threads/{args.thread}/chat", json={"message": q}, headers=headers
-            ).json()["answer"]
+            ).json()["answer"],
+            "searches": searches_last_turn,
         }
 
     cases = load(TEST_DATA / args.questions)[: args.limit]
@@ -125,9 +145,12 @@ def main() -> None:
         correct = sum(r.get("correct", False) for r in scored)
         grounded = [r for r in scored if r["retrieved"]]
         hit = sum(r.get("correct", False) for r in grounded)
+        searched = sum(1 for r in scored if r.get("searches"))
+        calls = sum(r.get("searches", 0) for r in scored)
         print(f"  Correct    {correct}/{len(scored)}  ({correct / len(scored):.0%})")
         if grounded:
             print(f"  Correct when retrieved  {hit}/{len(grounded)}  ({hit / len(grounded):.0%})")
+        print(f"  Searched   {searched}/{len(scored)} turns  ({calls} tool calls)")
 
     if args.out:
         pathlib.Path(args.out).write_text(

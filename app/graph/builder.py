@@ -3,13 +3,11 @@
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from app.config import DATABASE_URL, MAX_TOOL_ITERATIONS
-from app.graph.nodes import agent
-from app.graph.tools import search_documents
+from app.graph.nodes import _searches_so_far, agent, search
 from app.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -28,18 +26,23 @@ _graph = None
 
 
 def route(state: MessagesState) -> str:
-    """Search if the agent asked to, otherwise stop."""
+    """Search if the agent asked to, otherwise stop.
+
+    The cap is counted per question. Counting the whole thread would
+    stop every search after the third one in a conversation.
+    """
     last = state["messages"][-1]
     wants_tool = isinstance(last, AIMessage) and bool(last.tool_calls)
-    searched = sum(1 for m in state["messages"] if m.type == "tool")
+    searched = _searches_so_far(state["messages"])
+
     return "search" if wants_tool and searched < MAX_TOOL_ITERATIONS else END
 
 
 def build() -> object:
-    """Two nodes, one loop."""
+    """Two nodes, one loop. Memory is written outside the graph."""
     graph = StateGraph(MessagesState)
     graph.add_node("agent", agent)
-    graph.add_node("search", ToolNode([search_documents]))
+    graph.add_node("search", search)
 
     graph.add_edge(START, "agent")
     graph.add_conditional_edges("agent", route, {"search": "search", END: END})

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth.deps import CurrentUser, get_current_user
 from app.db import postgres as db
 from app.db.qdrant import delete_thread as delete_thread_points
+from app.graph.memory import forget
 from app.logging_config import get_logger
 from app.models.schemas import ThreadCreate, ThreadOut
 
@@ -77,9 +78,11 @@ def delete_thread(
     if user.role != "admin" and thread["created_by"] != user.user_id:
         raise HTTPException(status_code=403, detail="Not allowed")
 
-    # Qdrant first. If this fails the row survives and the delete can
-    # be retried; the other order leaves orphan chunks.
+    # Everything outside Postgres goes first. If one of these fails the
+    # row survives and the delete can be retried; the other order
+    # leaves chunks and facts with nothing pointing at them.
     delete_thread_points(user.tenant_id, thread_id)
+    forget(str(thread_id))
 
     # ON DELETE CASCADE removes the document rows.
     db.execute(

@@ -47,7 +47,7 @@ EMBEDDING_DIM = 1536
 # path go to the larger one, where a misread table becomes a
 # confidently wrong number. Chosen by path, never by a grade.
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-ANSWER_MODEL = os.getenv("ANSWER_MODEL", "gpt-4o")
+ANSWER_MODEL = os.getenv("ANSWER_MODEL", "gpt-4o-mini")
 
 # Named vectors. The collection carries both from the start so that
 # adding BM25 in phase 5 does not mean rebuilding the collection.
@@ -77,6 +77,7 @@ MIN_SCORE = float(os.getenv("MIN_SCORE", "0"))
 # Graph
 # ---------------------------------------------------------------
 MAX_TOOL_ITERATIONS = int(os.getenv("MAX_TOOL_ITERATIONS", "3"))
+
 
 # ---------------------------------------------------------------
 # Ingestion

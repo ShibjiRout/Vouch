@@ -16,6 +16,7 @@ env/
 # Environment variables
 .env
 .env.*
+.env_copy
 !.env.example
 
 # Temp uploads
@@ -55,7 +56,6 @@ scripts/
 claude_data/
 CLAUDE.md
 
-# Eval fixtures and output - local only
+# Eval fixtures, results and notes - local only
 test_data/
-eval/*.json
-eval/results/
+metrics/
