@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vouch</title>
+<style>
+  :root {
+    --paper:  #fbfbfa;
+    --sand:   #f6f5f2;
+    --stone:  #eceae6;
+    --ink:    #1a1a19;
+    --muted:  rgba(0,0,0,.45);
+    --line:   rgba(0,0,0,.09);
+    --accent: #3B6EE0;
+    --ok:     #1F7A5C;
+    --bad:    #B4472E;
+    --serif:  Georgia, "Times New Roman", serif;
+    --sans:   -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --mono:   ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 15px/1.65 var(--sans); -webkit-font-smoothing: antialiased;
+    display: grid; grid-template-columns: 236px 1fr 272px;
+    height: 100vh; overflow: hidden;
+  }
+  @media (max-width: 1080px) { body { grid-template-columns: 220px 1fr; } .files { display: none; } }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+  [hidden] { display: none !important; }
+
+  /* ---------- logo ---------- */
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo svg { flex: none; }
+  .logo .word { font: 400 19px/1 var(--serif); letter-spacing: .03em; color: var(--ink); }
+
+  /* ---------- chats rail ---------- */
+  .rail {
+    background: var(--sand); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .rail > .logo { padding: 20px 18px 16px; }
+  .new {
+    margin: 0 14px 18px; padding: 9px 13px; border-radius: 8px;
+    background: #fff; color: var(--ink); border: 1px solid rgba(0,0,0,.13);
+    font: 500 13px/1 inherit; cursor: pointer; text-align: left;
+  }
+  .new:hover { border-color: rgba(0,0,0,.3); }
+  .chats { overflow-y: auto; flex: 1; }
+  .chat {
+    display: flex; align-items: center; gap: 8px; padding: 9px 14px 9px 18px;
+    cursor: pointer; color: rgba(0,0,0,.55); font-size: 13px;
+    border-left: 2px solid transparent;
+  }
+  .chat span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat:hover { background: rgba(0,0,0,.03); color: var(--ink); }
+  .chat.on { color: var(--ink); font-weight: 500; border-left-color: var(--accent); background: rgba(0,0,0,.035); }
+  .chat .kill {
+    border: 0; background: none; cursor: pointer; padding: 2px 4px; visibility: hidden;
+    font: 400 13px/1 var(--sans); color: var(--muted);
+  }
+  .chat:hover .kill { visibility: visible; }
+  .chat .kill:hover { color: var(--bad); }
+  .railempty { padding: 4px 18px 12px; font: 400 11.5px/1.6 var(--mono); color: var(--muted); }
+  .who {
+    border-top: 1px solid var(--line); padding: 13px 18px;
+    font: 400 11.5px/1 var(--mono); color: rgba(0,0,0,.5);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .who .mail { overflow: hidden; text-overflow: ellipsis; }
+  .who a { margin-left: auto; color: rgba(0,0,0,.35); text-decoration: none; flex: none; }
+  .who a:hover { color: var(--ink); }
+
+  /* Admin only. A member never sees this button. */
+  .admin-btn {
+    margin: 0 14px 12px; padding: 8px 12px; border-radius: 8px;
+    display: flex; align-items: center; gap: 8px;
+    background: none; border: 1px solid rgba(0,0,0,.13);
+    font: 400 11.5px/1 var(--mono); color: rgba(0,0,0,.6);
+    cursor: pointer; text-align: left;
+  }
+  .admin-btn:hover { border-color: rgba(0,0,0,.3); color: var(--ink); background: #fff; }
+  .admin-btn .tick {
+    margin-left: auto; padding: 1px 5px; border-radius: 20px;
+    background: rgba(59,110,224,.1); color: var(--accent); font-size: 10px;
+  }
+
+  /* ---------- conversation ---------- */
+  main { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  .head {
+    display: flex; align-items: center; gap: 13px;
+    padding: 14px 30px; border-bottom: 1px solid var(--line);
+  }
+  .head .badge {
+    width: 36px; height: 36px; border-radius: 10px; flex: none;
+    background: #f0eeea; border: 1px solid rgba(0,0,0,.1);
+    display: grid; place-items: center;
+  }
+  .head .name { font: 400 18px/1.1 var(--serif); letter-spacing: .03em; }
+  .head .state {
+    display: flex; align-items: center; gap: 6px; margin-top: 3px;
+    font: 400 11.5px/1 var(--mono); color: var(--muted); white-space: nowrap;
+  }
+  .head .state .live { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); flex: none; }
+  .head .state .live.idle { background: rgba(0,0,0,.2); }
+  .head .count { margin-left: auto; font: 400 11.5px/1 var(--mono); color: rgba(0,0,0,.35); }
+
+  .stream { flex: 1; overflow-y: auto; padding: 28px 30px 8px; }
+  .thread { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+  /* user, right, one shade off the page */
+  .ask {
+    align-self: flex-end; max-width: 76%; padding: 10px 15px;
+    border-radius: 12px 12px 4px 12px; background: var(--stone);
+    font-size: 13.5px; line-height: 1.6; white-space: pre-wrap;
+  }
+  /* assistant, left, no container so it can stream */
+  .say { max-width: 88%; display: flex; flex-direction: column; gap: 10px; }
+  .say p { font-size: 14px; line-height: 1.7; text-wrap: pretty; white-space: pre-wrap; }
+  .say.refused p:first-child { font-weight: 500; }
+
+  /* evidence - hover a page pill to see the passage */
+  .cites { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ev { position: relative; display: inline-block; }
+  .cite {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    border: 1px solid rgba(59,110,224,.35); background: rgba(59,110,224,.08);
+    font: 500 10.5px/1.6 var(--mono); color: var(--accent); cursor: pointer;
+  }
+  .pop {
+    position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 20;
+    width: 420px; max-width: 60vw; opacity: 0; visibility: hidden;
+    transform: translateY(4px); transition: opacity .13s, transform .13s, visibility .13s;
+    border: 1px solid rgba(0,0,0,.12); border-radius: 10px; background: #fff;
+    padding: 12px 14px; box-shadow: 0 12px 30px rgba(0,0,0,.14);
+  }
+  .ev:hover .pop { opacity: 1; visibility: visible; transform: translateY(0); }
+  .pop .src { font: 400 11px/1 var(--mono); color: var(--accent); margin-bottom: 8px; }
+  .pop .txt {
+    display: block; max-height: 220px; overflow-y: auto;
+    font: 400 11.5px/1.6 var(--mono); color: rgba(0,0,0,.6); white-space: pre-line;
+  }
+
+  .working { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: rgba(0,0,0,.42); }
+  .working i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .working i, .dot.work { animation: none; } }
+
+  .oops {
+    align-self: flex-start; max-width: 88%; padding: 10px 13px; border-radius: 9px;
+    border: 1px solid rgba(180,71,46,.3); background: rgba(180,71,46,.06);
+    font-size: 13.5px; color: var(--bad);
+  }
+
+  /* empty states */
+  .empty { margin: 12vh auto 0; max-width: 420px; text-align: center; }
+  .empty h3 { font: 400 22px/1.3 var(--serif); }
+  .empty p { margin-top: 10px; font-size: 13.5px; line-height: 1.7; color: var(--muted); }
+
+  /* ---------- composer ---------- */
+  .composer { padding: 12px 30px 22px; }
+  .box {
+    max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 10px;
+    background: #fff; border: 1px solid rgba(0,0,0,.14);
+    border-radius: 11px; padding: 10px 10px 10px 16px;
+  }
+  .box:focus-within { border-color: var(--accent); }
+  .box input { flex: 1; background: none; border: 0; color: var(--ink); font: inherit; font-size: 13px; outline: none; }
+  .box input::placeholder { color: rgba(0,0,0,.3); }
+  .send {
+    background: var(--ink); color: #fff; border: 0; border-radius: 7px;
+    padding: 7px 15px; font: 600 12.5px/1 inherit; cursor: pointer;
+  }
+  .send:hover { background: #333; }
+  .send[disabled] { background: rgba(0,0,0,.2); cursor: default; }
+
+  /* ---------- documents, right ---------- */
+  .files {
+    background: var(--sand); border-left: 1px solid var(--line);
+    padding: 20px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 9px;
+  }
+  .files h2 {
+    margin-bottom: 5px; font: 500 10px/1 var(--mono);
+    letter-spacing: .14em; text-transform: uppercase; color: rgba(0,0,0,.4);
+  }
+  .file { border: 1px solid rgba(0,0,0,.1); border-radius: 9px; padding: 11px 12px; background: #fff; }
+  .file .row { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .dot.ready { background: var(--ok); }
+  .dot.work  { background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+  .dot.fail  { background: var(--bad); }
+  .file .n { flex: 1; font: 400 12px/1.4 var(--mono); word-break: break-all; }
+  .file .kill {
+    border: 0; background: none; cursor: pointer; padding: 0 2px; visibility: hidden;
+    font: 400 12px/1 var(--sans); color: var(--muted); align-self: flex-start;
+  }
+  .file:hover .kill { visibility: visible; }
+  .file .kill:hover { color: var(--bad); }
+  .file .s { margin-top: 4px; padding-left: 14px; font: 400 11px/1.4 var(--mono); color: var(--muted); }
+  .file .s.bad { color: var(--bad); }
+  .filesempty { font: 400 11.5px/1.6 var(--mono); color: var(--muted); padding: 2px 0 6px; }
+  .addfile {
+    border: 1px dashed rgba(0,0,0,.16); border-radius: 9px; padding: 11px;
+    background: none; color: var(--muted); font: 400 12px/1 var(--mono);
+    cursor: pointer; text-align: center;
+  }
+  .addfile:hover { border-color: rgba(0,0,0,.35); color: var(--ink); }
+  .addfile[disabled] { opacity: .5; cursor: default; }
+
+  /* ---------- admin panel ---------- */
+  .scrim {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    background: rgba(26,26,25,.32); backdrop-filter: blur(2px);
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .scrim.open { display: flex; }
+  .panel {
+    width: 700px; max-width: 100%; max-height: 86vh; overflow-y: auto;
+    background: var(--paper); border: 1px solid rgba(0,0,0,.12);
+    border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.24);
+  }
+  .panel .top {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 20px 24px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .panel .top h2 { font: 400 21px/1.2 var(--serif); }
+  .panel .top .sub { font: 400 11px/1 var(--mono); color: var(--muted); }
+  .panel .top .x {
+    margin-left: auto; background: none; border: 0; cursor: pointer;
+    font: 400 18px/1 var(--sans); color: var(--muted); padding: 2px 6px;
+  }
+  .panel .top .x:hover { color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left; padding: 12px 24px; border-bottom: 1px solid var(--line);
+    font: 500 10px/1 var(--mono); letter-spacing: .12em;
+    text-transform: uppercase; color: rgba(0,0,0,.4);
+  }
+  td { padding: 13px 24px; border-bottom: 1px solid rgba(0,0,0,.06); font-size: 13px; vertical-align: middle; }
+  td.mono { font: 400 12px/1.4 var(--mono); }
+  td.dim { color: var(--muted); font: 400 11.5px/1.4 var(--mono); }
+  .role {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font: 500 10px/1.6 var(--mono); letter-spacing: .06em;
+    border: 1px solid var(--line); color: rgba(0,0,0,.55);
+  }
+  .role.admin { border-color: rgba(59,110,224,.35); background: rgba(59,110,224,.08); color: var(--accent); }
+  .remove {
+    background: none; border: 0; cursor: pointer; padding: 4px 6px;
+    font: 400 11.5px/1 var(--mono); color: var(--bad);
+  }
+  .remove:hover { text-decoration: underline; }
+  .remove[disabled] { color: rgba(0,0,0,.25); cursor: default; text-decoration: none; }
+
+  .addrow { padding: 18px 24px 12px; display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+  .addrow input, .addrow select {
+    border: 1px solid rgba(0,0,0,.14); border-radius: 8px; padding: 9px 11px;
+    font: 400 12.5px/1 var(--sans); background: #fff; color: var(--ink); outline: none;
+  }
+  .addrow input:focus, .addrow select:focus { border-color: var(--accent); }
+  .addrow input.email { flex: 1; min-width: 190px; }
+  .addrow input.pw { width: 150px; }
+  .addrow .go {
+    background: var(--ink); color: #fff; border: 0; border-radius: 8px;
+    padding: 10px 16px; font: 600 12.5px/1 var(--sans); cursor: pointer;
+  }
+  .addrow .go:hover { background: #333; }
+  .panelerror { padding: 0 24px 8px; font-size: 12.5px; color: var(--bad); }
+  .note { padding: 6px 24px 20px; font: 400 11px/1.6 var(--mono); color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- chats ---------------------------------------------------------- -->
+<div class="rail">
+  <div class="logo">
+    <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+      <path d="M9.5 2.6V5" stroke="#8a8a86" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="9.5" cy="1.9" r="1.15" fill="#3B6EE0"/>
+      <rect x="2.6" y="5" width="13.8" height="12.4" rx="3.6" stroke="#1a1a19" stroke-width="1.6"/>
+      <circle cx="7" cy="10.2" r="1.35" fill="#1a1a19"/>
+      <circle cx="12" cy="10.2" r="1.35" fill="#1a1a19"/>
+      <path d="M7.2 13.9h4.6" stroke="#8a8a86" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M2.6 9.4H1.1M16.4 9.4h1.5" stroke="#8a8a86" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="18.6" cy="17.4" r="6.1" fill="#fbfbfa" fill-opacity=".9" stroke="#3B6EE0" stroke-width="1.7"/>
+      <path d="M23.1 21.9L26.4 25.2" stroke="#3B6EE0" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <span class="word">Vouch</span>
+  </div>
+
+  <button class="new" id="newChat">＋  New chat</button>
+  <div class="chats" id="chats"></div>
+
+  <button class="admin-btn" id="openAdmin" hidden>
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="4.4" r="2.5" stroke="#3B6EE0" stroke-width="1.3"/>
+      <path d="M2 12.4c0-2.5 2.2-4 5-4s5 1.5 5 4" stroke="#3B6EE0" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>
+    Admin
+    <span class="tick" id="userCount"></span>
+  </button>
+
+  <div class="who">
+    <span class="mail" id="whoami">…</span>
+    <a href="#" id="logout">Log out</a>
+  </div>
+</div>
+
+<!-- conversation --------------------------------------------------- -->
+<main>
+  <div class="head">
+    <div class="badge">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+        <path d="M9.5 2.6V5" stroke="#8a8a86" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="9.5" cy="1.9" r="1.15" fill="#3B6EE0"/>
+        <rect x="2.6" y="5" width="13.8" height="12.4" rx="3.6" stroke="#1a1a19" stroke-width="1.6"/>
+        <circle cx="7" cy="10.2" r="1.35" fill="#1a1a19"/>
+        <circle cx="12" cy="10.2" r="1.35" fill="#1a1a19"/>
+        <path d="M7.2 13.9h4.6" stroke="#8a8a86" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M2.6 9.4H1.1M16.4 9.4h1.5" stroke="#8a8a86" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="18.6" cy="17.4" r="6.1" fill="#fbfbfa" fill-opacity=".9" stroke="#3B6EE0" stroke-width="1.7"/>
+        <path d="M23.1 21.9L26.4 25.2" stroke="#3B6EE0" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div>
+      <div class="name">Vouch</div>
+      <div class="state"><span class="live idle" id="live"></span><span id="chatState">No chat open</span></div>
+    </div>
+    <div class="count" id="chunkCount"></div>
+  </div>
+
+  <div class="stream" id="stream">
+    <div class="thread" id="thread"></div>
+  </div>
+
+  <div class="composer">
+    <div class="box">
+      <input id="message" placeholder="Ask about the documents in this chat" autocomplete="off">
+      <button class="send" id="send">Send</button>
+    </div>
+  </div>
+</main>
+
+<!-- documents ------------------------------------------------------ -->
+<div class="files">
+  <h2>Documents</h2>
+  <div id="fileList"></div>
+  <button class="addfile" id="addFile">＋  Add PDF</button>
+  <input type="file" id="picker" accept="application/pdf" hidden>
+</div>
+
+<!-- admin panel ---------------------------------------------------- -->
+<div class="scrim" id="scrim">
+  <div class="panel" role="dialog" aria-modal="true" aria-label="Team">
+    <div class="top">
+      <h2>Team</h2>
+      <span class="sub" id="teamSub"></span>
+      <button class="x" id="closeAdmin" aria-label="Close">✕</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Email</th><th>Role</th><th>Added by</th><th>Added</th><th></th></tr>
+      </thead>
+      <tbody id="people"></tbody>
+    </table>
+
+    <div class="addrow">
+      <input class="email" id="newEmail" placeholder="colleague@company.com" autocomplete="off">
+      <input class="pw" id="newPw" type="password" placeholder="temporary password" autocomplete="new-password">
+      <select id="newRole"><option>member</option><option>admin</option></select>
+      <button class="go" id="addUser">Add</button>
+    </div>
+    <div class="panelerror" id="panelError"></div>
+    <p class="note">
+      Removing someone deletes their chats, the documents in them, their saved
+      messages, and their name from this table. Chats are private to the person
+      who started them — an admin manages the team, not their colleagues'
+      conversations.
+    </p>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ from langchain_core.tools import tool
 from langgraph.config import get_config
 
 from app.config import FINAL_K, MIN_SCORE
+from app.db import postgres as db
 from app.logging_config import get_logger
 from app.retrieval.hybrid import Hit, search
 from app.retrieval.rerank import rerank
@@ -18,6 +19,34 @@ CHUNK_RE = re.compile(
     r"(?P<text>.*?)\n</chunk>",
     re.S,
 )
+
+
+def still_reading(tenant_id: UUID, thread_id: UUID) -> int:
+    """How many of this chat's documents have not finished processing."""
+    row = db.fetch_one(
+        "SELECT count(*) AS n FROM documents "
+        "WHERE thread_id = %s AND tenant_id = %s "
+        "AND status IN ('pending','processing')",
+        (thread_id, tenant_id),
+    )
+    return row["n"] if row else 0
+
+
+def no_results(tenant_id: UUID, thread_id: UUID) -> str:
+    """Nothing found - and whether that is because a PDF is still being read.
+
+    The prompt has a separate refusal for a document that is not ready
+    yet, but nothing used to tell the model which case it was in, so it
+    guessed. This is the only place that knows.
+    """
+    pending = still_reading(tenant_id, thread_id)
+    if pending:
+        return (
+            f"NO_RESULTS_STILL_PROCESSING: {pending} document"
+            f"{'s are' if pending > 1 else ' is'} still being read. "
+            "Anything in them cannot be searched yet."
+        )
+    return "NO_RESULTS"
 
 
 def format_hits(hits: list[Hit]) -> str:
@@ -66,6 +95,9 @@ def search_documents(query: str) -> str:
             hits[0].score,
             MIN_SCORE,
         )
-        return "NO_RESULTS"
+        return no_results(tenant_id, thread_id)
+
+    if not hits:
+        return no_results(tenant_id, thread_id)
 
     return format_hits(hits)

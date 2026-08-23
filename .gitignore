@@ -11,6 +11,8 @@ wheels/
 # Virtual environments
 .venv/
 venv/
+# ragas needs langchain-community < 0.4, which the app does not use
+.venv-eval/
 env/
 
 # Environment variables

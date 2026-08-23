@@ -31,7 +31,7 @@ async def lifespan(_: FastAPI):
     db.pool.close()
 
 
-app = FastAPI(title="DocLense", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="Vouch", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

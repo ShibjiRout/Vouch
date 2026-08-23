@@ -126,9 +126,9 @@ def render(facts: list[Fact]) -> str:
     return (
         "What you already know in this conversation:\n"
         + "\n".join(lines)
-        + "\n\nUse a value from here only if it answers the question exactly - "
-        "same measure, same period. Cite the filename and page shown beside it, "
-        "never any other filename. Anything else needs a search."
+        + "\n\nUse a value from here when it answers the question exactly - "
+        "same measure, same period, same basis - and do not search for it "
+        "again. Anything else needs a search."
     )
 
 

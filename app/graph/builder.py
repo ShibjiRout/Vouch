@@ -61,3 +61,11 @@ def get_graph():
         _graph = build()
         log.info("graph ready")
     return _graph
+
+
+def delete_checkpoints(thread_id: str) -> None:
+    """Drop a chat's saved messages. The thread row does not cascade here."""
+    # PostgresSaver owns its own tables, keyed by thread_id as text.
+    # Nothing in schema.sql references them, so deleting the thread
+    # leaves the whole conversation sitting in the database.
+    get_graph().checkpointer.delete_thread(str(thread_id))

@@ -15,7 +15,13 @@ from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.graph import MessagesState
 
-from app.config import ANSWER_MODEL, MAX_TOOL_ITERATIONS, OPENAI_API_KEY
+from app.config import (
+    ANSWER_MODEL,
+    LLM_MAX_RETRIES,
+    LLM_TIMEOUT_SECONDS,
+    MAX_TOOL_ITERATIONS,
+    OPENAI_API_KEY,
+)
 from app.graph.memory import recall, render
 from app.graph.prompts import SYSTEM_PROMPT
 from app.graph.tools import search_documents
@@ -27,7 +33,13 @@ log = get_logger(__name__)
 # enough not to look like a template the model should continue.
 HISTORY_LIMIT = 2
 
-_llm = ChatOpenAI(model=ANSWER_MODEL, temperature=0, api_key=OPENAI_API_KEY)
+_llm = ChatOpenAI(
+    model=ANSWER_MODEL,
+    temperature=0,
+    api_key=OPENAI_API_KEY,
+    max_retries=LLM_MAX_RETRIES,
+    timeout=LLM_TIMEOUT_SECONDS,
+)
 _with_tool = _llm.bind_tools([search_documents])
 
 

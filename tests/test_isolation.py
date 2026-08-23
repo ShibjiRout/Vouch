@@ -99,8 +99,8 @@ def test_tenant_id_in_body_is_ignored(client, make_tenant):
     assert client.get(f"/threads/{thread_id}", headers=b["headers"]).status_code == 404
 
 
-def test_member_cannot_delete_another_users_thread(client, make_tenant):
-    """A member may only delete chats they created."""
+def test_member_cannot_see_another_users_thread(client, make_tenant):
+    """A colleague's chat is invisible, and adding users is admin only."""
     admin = make_tenant()
     email = f"member-{uuid.uuid4().hex[:12]}@example.test"
     assert (
@@ -119,11 +119,16 @@ def test_member_cannot_delete_another_users_thread(client, make_tenant):
 
     thread_id = new_thread(client, admin["headers"])
 
-    # Same tenant, so it is visible — but not deletable.
-    assert client.get(f"/threads/{thread_id}", headers=member_headers).status_code == 200
+    # A chat belongs to whoever started it. Same tenant is not enough, so
+    # a colleague's chat is a 404 — not a 403, which would confirm it is
+    # real.
+    assert client.get(f"/threads/{thread_id}", headers=member_headers).status_code == 404
     assert (
-        client.delete(f"/threads/{thread_id}", headers=member_headers).status_code == 403
+        client.delete(f"/threads/{thread_id}", headers=member_headers).status_code == 404
     )
+    assert thread_id not in [
+        t["thread_id"] for t in client.get("/threads", headers=member_headers).json()
+    ]
     assert (
         client.post("/users", json={"email": "x@y.test", "password": "testpass123"},
                     headers=member_headers).status_code == 403

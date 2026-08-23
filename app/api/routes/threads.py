@@ -6,21 +6,20 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth.deps import CurrentUser, get_current_user
 from app.db import postgres as db
-from app.db.qdrant import delete_thread as delete_thread_points
-from app.graph.memory import forget
 from app.logging_config import get_logger
 from app.models.schemas import ThreadCreate, ThreadOut
+from app.services.purge import purge_thread
 
 router = APIRouter(prefix="/threads", tags=["threads"])
 log = get_logger(__name__)
 
 
 def get_owned_thread(thread_id: UUID, user: CurrentUser) -> dict:
-    """Fetch a thread scoped to the caller's tenant, or 404."""
+    """Fetch a thread scoped to the caller's tenant and to them, or 404."""
     row = db.fetch_one(
         "SELECT thread_id, tenant_id, created_by, title, created_at, last_msg_at "
-        "FROM threads WHERE thread_id = %s AND tenant_id = %s",
-        (thread_id, user.tenant_id),
+        "FROM threads WHERE thread_id = %s AND tenant_id = %s AND created_by = %s",
+        (thread_id, user.tenant_id, user.user_id),
     )
     if row is None:
         # 404 rather than 403 — a 403 would confirm the id was real.
@@ -45,12 +44,14 @@ def create_thread(
 
 @router.get("", response_model=list[ThreadOut])
 def list_threads(user: CurrentUser = Depends(get_current_user)) -> list[ThreadOut]:
-    """List this tenant's chats, most recently used first."""
+    """List the caller's own chats, most recently used first."""
+    # A chat belongs to the person who started it. An admin manages
+    # users, which is not the same as reading their colleagues' chats.
     rows = db.fetch_all(
         "SELECT thread_id, title, created_at, last_msg_at FROM threads "
-        "WHERE tenant_id = %s "
+        "WHERE tenant_id = %s AND created_by = %s "
         "ORDER BY last_msg_at DESC NULLS LAST, created_at DESC",
-        (user.tenant_id,),
+        (user.tenant_id, user.user_id),
     )
     return [ThreadOut(**row) for row in rows]
 
@@ -70,23 +71,17 @@ def delete_thread(
     user: CurrentUser = Depends(get_current_user),
 ) -> None:
     """Delete a chat, its documents, and their chunks."""
-    thread = get_owned_thread(thread_id, user)
+    # The scoped lookup is the whole check — it only ever returns a
+    # chat the caller started.
+    get_owned_thread(thread_id, user)
 
-    # Members may only delete their own chats. Admins may delete any
-    # chat in the tenant — but never another tenant's, which the
-    # scoped lookup above already prevents.
-    if user.role != "admin" and thread["created_by"] != user.user_id:
-        raise HTTPException(status_code=403, detail="Not allowed")
-
-    # Everything outside Postgres goes first. If one of these fails the
-    # row survives and the delete can be retried; the other order
-    # leaves chunks and facts with nothing pointing at them.
-    delete_thread_points(user.tenant_id, thread_id)
-    forget(str(thread_id))
+    # Chunks, messages, facts and any unread upload, all before the row.
+    purge_thread(user.tenant_id, thread_id)
 
     # ON DELETE CASCADE removes the document rows.
     db.execute(
-        "DELETE FROM threads WHERE thread_id = %s AND tenant_id = %s",
-        (thread_id, user.tenant_id),
+        "DELETE FROM threads WHERE thread_id = %s AND tenant_id = %s "
+        "AND created_by = %s",
+        (thread_id, user.tenant_id, user.user_id),
     )
     log.info("thread deleted %s tenant=%s", thread_id, user.tenant_id)

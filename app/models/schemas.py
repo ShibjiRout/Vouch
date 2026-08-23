@@ -69,6 +69,9 @@ class UserOut(BaseModel):
     role: str
     tenant_id: UUID
     tenant_name: str
+    # None if nobody added them, or if whoever did has been removed.
+    added_by_email: str | None = None
+    created_at: datetime | None = None
 
 
 # ---------------------------------------------------------------

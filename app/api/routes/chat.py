@@ -10,6 +10,7 @@ from app.db import postgres as db
 from app.graph.builder import get_graph
 from app.graph.memory import remember_later
 from app.graph.tools import parse_chunks
+from app.guardrails.redaction import redact
 from app.logging_config import get_logger
 from app.models.schemas import ChatRequest, ChatResponse, MessageOut, Source
 
@@ -38,7 +39,9 @@ def _sources_from(messages: list) -> list[Source]:
             key = (chunk["filename"], chunk["page"], chunk["text"][:60])
             if key not in seen:
                 seen.add(key)
-                sources.append(Source(**chunk))
+                # The interface shows this text on hover, so it leaves
+                # the server the same way an answer does.
+                sources.append(Source(**{**chunk, "text": redact(chunk["text"])}))
     return sources
 
 
@@ -57,7 +60,10 @@ def chat(
     )
 
     messages = result["messages"]
-    answer = messages[-1].content
+
+    # G3. The last thing that happens to an answer, so nothing that
+    # reaches the user has skipped it. See ARCHITECTURE §8.
+    answer = redact(messages[-1].content)
 
     # Only the chunks from this turn, not every search in the thread.
     turn = messages[_last_user_index(messages) :]
@@ -113,8 +119,14 @@ def messages(
             out.append(MessageOut(role="user", content=message.content))
             pending = []
         elif message.type == "ai" and message.content:
+            # The checkpointer holds what the model wrote, before G3, so
+            # replaying history has to redact again.
             out.append(
-                MessageOut(role="assistant", content=message.content, sources=pending)
+                MessageOut(
+                    role="assistant",
+                    content=redact(message.content),
+                    sources=pending,
+                )
             )
             pending = []
 

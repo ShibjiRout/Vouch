@@ -1,13 +1,13 @@
 """Upload, list, poll, and delete a chat's documents."""
 
 import shutil
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.api.routes.threads import get_owned_thread
 from app.auth.deps import CurrentUser, get_current_user
+from app.config import UPLOAD_DIR
 from app.db import postgres as db
 from app.db.qdrant import delete_document as delete_document_points
 from app.logging_config import get_logger
@@ -18,7 +18,6 @@ from app.worker.process_pdf import process_pdf_task
 router = APIRouter(prefix="/threads/{thread_id}/documents", tags=["documents"])
 log = get_logger(__name__)
 
-UPLOAD_DIR = Path(__file__).resolve().parents[3] / "temp_uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 DOCUMENT_COLUMNS = (
@@ -26,13 +25,20 @@ DOCUMENT_COLUMNS = (
     "page_count, error_message, created_at"
 )
 
+# Same columns, qualified, for the query that joins through threads.
+OWNED_COLUMNS = ", ".join(f"d.{name}" for name in DOCUMENT_COLUMNS.split(", "))
+
 
 def get_owned_document(document_id: UUID, thread_id: UUID, user: CurrentUser) -> dict:
-    """Fetch a document scoped to its chat and tenant, or 404."""
+    """Fetch a document scoped to its chat, tenant, and owner, or 404."""
+    # The join carries created_by, so guessing both ids gets you a 404
+    # unless the chat is yours.
     row = db.fetch_one(
-        f"SELECT {DOCUMENT_COLUMNS}, uploaded_by FROM documents "
-        "WHERE document_id = %s AND thread_id = %s AND tenant_id = %s",
-        (document_id, thread_id, user.tenant_id),
+        f"SELECT {OWNED_COLUMNS} FROM documents d "
+        "JOIN threads t ON t.thread_id = d.thread_id "
+        "WHERE d.document_id = %s AND d.thread_id = %s AND d.tenant_id = %s "
+        "AND t.created_by = %s",
+        (document_id, thread_id, user.tenant_id, user.user_id),
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -101,8 +107,7 @@ def get_document(
     user: CurrentUser = Depends(get_current_user),
 ) -> DocumentOut:
     """Poll one document's status."""
-    row = get_owned_document(document_id, thread_id, user)
-    return DocumentOut(**{key: row[key] for key in DocumentOut.model_fields})
+    return DocumentOut(**get_owned_document(document_id, thread_id, user))
 
 
 @router.delete("/{document_id}", status_code=204)
@@ -112,13 +117,15 @@ def delete_document(
     user: CurrentUser = Depends(get_current_user),
 ) -> None:
     """Delete a document and its chunks."""
-    row = get_owned_document(document_id, thread_id, user)
-
-    if user.role != "admin" and row["uploaded_by"] != user.user_id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+    # The lookup joins through threads on created_by, so reaching a
+    # document at all means the chat is the caller's.
+    get_owned_document(document_id, thread_id, user)
 
     # Qdrant first — the other order leaves orphan chunks.
     delete_document_points(user.tenant_id, document_id)
+
+    # Only still on disk if the worker never read it.
+    (UPLOAD_DIR / f"{document_id}.pdf").unlink(missing_ok=True)
 
     db.execute(
         "DELETE FROM documents WHERE document_id = %s AND tenant_id = %s",

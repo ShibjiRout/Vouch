@@ -1,6 +1,6 @@
-# DocLense — AI Document Intelligence
+# Vouch — AI Document Intelligence
 
-Chat with your PDF documents using AI. Upload any PDF, assign a Case ID, and ask questions — DocLense retrieves precise, source-grounded answers using RAG (Retrieval-Augmented Generation).
+Chat with your PDF documents using AI. Upload any PDF, assign a Case ID, and ask questions — Vouch retrieves precise, source-grounded answers using RAG (Retrieval-Augmented Generation).
 
 ---
 
@@ -27,7 +27,7 @@ Browser → FastAPI Server → Redis (Valkey) Queue → RQ Worker
 ## Project Structure
 
 ```
-04_DocLense/
+04_Vouch/
 ├── app/
 │   ├── api/
 │   │   └── server.py          # FastAPI routes
@@ -109,7 +109,7 @@ MONGO_URL=mongodb://localhost:27017
 REDIS_URL=redis://localhost:6379
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=...
-LANGCHAIN_PROJECT=DocLense
+LANGCHAIN_PROJECT=Vouch
 LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
 ```
 
@@ -146,8 +146,8 @@ Images are hosted on Azure Container Registry (`doclesnses.azurecr.io`) and run 
 ```
 
 **Container Apps:**
-- `doclense-server` — FastAPI + frontend
-- `doclense-worker` — RQ background worker
+- `vouch-server` — FastAPI + frontend
+- `vouch-worker` — RQ background worker
 
 Both share an Azure Files volume at `/app/temp_uploads` for PDF handoff between server and worker.
 

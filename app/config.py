@@ -1,7 +1,14 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Where a PDF waits between the request and the worker reading it.
+# The worker removes its own file when it finishes, so anything left
+# here belongs to a document that never got that far.
+UPLOAD_DIR = Path(__file__).resolve().parents[1] / "temp_uploads"
 
 # ---------------------------------------------------------------
 # External services
@@ -47,7 +54,13 @@ EMBEDDING_DIM = 1536
 # path go to the larger one, where a misread table becomes a
 # confidently wrong number. Chosen by path, never by a grade.
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-ANSWER_MODEL = os.getenv("ANSWER_MODEL", "gpt-4o-mini")
+ANSWER_MODEL = os.getenv("ANSWER_MODEL", "gpt-4.1-mini")
+
+# A 429 used to surface as a 500 and cost the user their answer. The
+# client backs off between attempts, so this trades a slower reply for
+# one that arrives.
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "4"))
+LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
 
 # Named vectors. The collection carries both from the start so that
 # adding BM25 in phase 5 does not mean rebuilding the collection.
