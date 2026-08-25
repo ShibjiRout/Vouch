@@ -1,0 +1,18 @@
+# Builds the two images and tags them for the registry. Run this on your
+# machine, not on the server — building needs more memory than running.
+#
+#   docker compose -f docker-compose.build.yml build
+#   docker compose -f docker-compose.build.yml push
+
+services:
+  api:
+    image: shibji0606/vouch-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+  worker:
+    image: shibji0606/vouch-worker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
