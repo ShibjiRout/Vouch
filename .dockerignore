@@ -33,3 +33,6 @@ CLAUDE.md
 # Local state
 temp_uploads/
 scripts/
+metrics/
+frontend/
+.venv-eval/

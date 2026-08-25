@@ -1,7 +1,7 @@
 // The only place that knows about the token, the base path, and the
 // shape of a FastAPI error. Everything else calls api.get / api.post.
 
-const TOKEN_KEY = "doclense.token";
+const TOKEN_KEY = "vouch.token";
 
 export const token = {
   get: () => localStorage.getItem(TOKEN_KEY),

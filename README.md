@@ -1,164 +1,141 @@
-# Vouch — AI Document Intelligence
+# Vouch
 
-Chat with your PDF documents using AI. Upload any PDF, assign a Case ID, and ask questions — Vouch retrieves precise, source-grounded answers using RAG (Retrieval-Augmented Generation).
+A financial document analyst you can chat with. Upload annual reports, trading
+updates or contracts into a chat and ask questions about them. Every answer comes
+from those documents and shows the page it was read from. When the documents do
+not support an answer, it says so.
 
----
-
-## Architecture
-
-```
-Browser → FastAPI Server → Redis (Valkey) Queue → RQ Worker
-                        ↓                              ↓
-                   Qdrant (vectors)           PDF → Chunks → Embeddings → Qdrant
-                   MongoDB (chat history)
-                   LangGraph (RAG pipeline)
-```
-
-**Stack:**
-- **Backend:** FastAPI, LangGraph, LangChain, OpenAI (GPT-4o-mini / GPT-4o)
-- **Vector DB:** Qdrant
-- **Chat History:** MongoDB
-- **Queue:** Valkey (Redis-compatible) + RQ
-- **Frontend:** Vanilla HTML/CSS/JS (3 pages)
-- **Deployment:** Azure Container Apps + Azure Container Registry
+To *vouch* a figure is to trace it back to the document that supports it. That is
+the whole product.
 
 ---
 
-## Project Structure
+## How it works
 
 ```
-04_Vouch/
-├── app/
-│   ├── api/
-│   │   └── server.py          # FastAPI routes
-│   ├── graph/
-│   │   ├── workflow.py        # LangGraph graph definition
-│   │   ├── nodes.py           # Graph node functions
-│   │   └── prompts.py         # Prompts + LLM models
-│   ├── models/
-│   │   └── schemas.py         # Pydantic schemas
-│   ├── services/
-│   │   ├── embedding_service.py
-│   │   ├── mongo_service.py
-│   │   ├── qdrant_service.py
-│   │   └── redis_service.py
-│   ├── worker/
-│   │   └── process_pdf.py     # PDF processing task
-│   └── config.py
-├── frontend/
-│   ├── index.html             # Landing page
-│   ├── upload.html            # Upload / enter case ID
-│   └── chat.html              # Chat interface
-├── main.py                    # Uvicorn entry point
-├── run_worker.py              # RQ worker entry point
-├── Dockerfile                 # Server image
-├── Dockerfile.worker          # Worker image
-├── docker-compose.yml         # Local infra (Valkey, MongoDB, Qdrant)
-├── deploy.ps1                 # Azure deployment script
-└── requirements.txt
+question ──┬─► dense search  → 30 ─┐
+           └─► BM25 keyword  → 30 ─┴─► RRF → 30 ─► local rerank → top 5 ─► agent
 ```
+
+The agent decides for itself whether to search, so "hello" never touches the
+vector store. Facts worth remembering are extracted in the background after the
+answer has already been sent.
 
 ---
 
-## RAG Pipeline (LangGraph)
+## Stack
 
-```
-classify_intent
-    ├── chat     → generate_direct → save_conversation
-    └── document → retrieve_history → check_processing → retrieve_chunks
-                   → generate_answer_mini → evaluate_answer
-                        ├── good → save_conversation
-                        └── bad  → generate_answer_heavy → save_conversation
-```
-
-- **classify_intent** — LLM classifies message as `chat` or `document`
-- **generate_direct** — fast response for greetings/small talk (no retrieval)
-- **retrieve_chunks** — semantic search via Qdrant (top 15 chunks)
-- **generate_answer_mini** — GPT-4o-mini answers from context
-- **evaluate_answer** — GPT-4o-mini evaluates answer quality
-- **generate_answer_heavy** — GPT-4o fallback if mini answer is poor
+| | |
+|---|---|
+| API | FastAPI, LangGraph, LangChain |
+| Models | `gpt-4.1-mini` answers, `gpt-4o-mini` extracts memory |
+| Vectors | Qdrant — dense + BM25 sparse, RRF fusion |
+| Reranker | `Xenova/ms-marco-MiniLM-L-6-v2` via fastembed, local, no API key |
+| Database | Postgres — tenants, users, threads, documents, and LangGraph's checkpoints |
+| Memory | LangMem over a Postgres store |
+| Queue | Valkey + RQ |
+| PDF | pdfplumber, tables kept whole |
+| Frontend | Vanilla HTML/CSS/JS, no build step, deployed separately |
 
 ---
 
-## Local Development
+## Running it
 
-### Prerequisites
-- Python 3.12+
-- Docker Desktop
-- `uv` package manager
-
-### Setup
+Five containers: Postgres, Qdrant, Valkey, the API, the worker.
 
 ```bash
-# Install dependencies
-uv sync
-
-# Start local infrastructure (Valkey, MongoDB, Qdrant)
-docker compose up -d
+docker compose up -d          # all five
+docker compose logs -f api    # follow the API
 ```
 
-### Environment Variables
+Or without Docker, for development:
 
-Create a `.env` file:
+```bash
+docker compose up -d postgres qdrant valkey
+uv sync
+uv run main.py                # API on :8000
+uv run run_worker.py          # required — uploads hang without it
+```
+
+The API serves no pages. Open `frontend/index.html` with any static server and
+point `ALLOWED_ORIGINS` at it.
+
+### Environment
 
 ```env
-OPENAI_API_KEY=sk-...
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vouch
 QDRANT_URL=http://localhost:6333
-QDRANT_API_KEY=
-MONGO_URL=mongodb://localhost:27017
 REDIS_URL=redis://localhost:6379
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=...
-LANGCHAIN_PROJECT=Vouch
-LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+OPENAI_API_KEY=sk-...
+JWT_SECRET=...
+ALLOWED_ORIGINS=http://localhost:5500
 ```
 
-### Run
+`docker compose` overrides the first three with container names — inside a
+container `localhost` means that container.
+
+---
+
+## API
+
+| Method | Endpoint | |
+|---|---|---|
+| `POST` | `/auth/register` | create a company and its first admin |
+| `POST` | `/auth/login` | form-encoded, returns a token |
+| `GET` | `/auth/me` | the caller and their company |
+| `GET` `POST` | `/threads` | list and create chats |
+| `GET` `DELETE` | `/threads/{id}` | one chat |
+| `GET` `POST` | `/threads/{id}/documents` | list and upload PDFs |
+| `GET` `DELETE` | `/threads/{id}/documents/{doc}` | poll status, remove |
+| `POST` | `/threads/{id}/chat` | ask a question |
+| `GET` | `/threads/{id}/messages` | the conversation so far |
+| `GET` `POST` | `/users` | admin only — the team |
+| `DELETE` | `/users/{id}` | admin only — remove someone |
+| `GET` | `/health` | Postgres and Qdrant reachable |
+
+Upload returns immediately with `pending`. Poll the document until it reads
+`ready` or `failed`.
+
+---
+
+## Isolation
+
+Three keys, all from the verified token, never from a request body.
+
+`tenant_id` is whose data it is. `thread_id` is which documents are in scope.
+`created_by` is whose chat it is — a colleague's chat is invisible, admins
+included. Someone else's id returns 404, never 403.
 
 ```bash
-# Terminal 1 — API server
-uv run main.py
-
-# Terminal 2 — Background worker
-uv run run_worker.py
+uv run pytest          # 17 tests; the isolation ones gate the rest
 ```
 
-Open `http://localhost:8000`
-
 ---
 
-## Case ID Format
+## Measured
 
-Case IDs follow the pattern: **4 letters + dash + number**
+233 questions over three annual reports: Recall@5 88%, correct-when-retrieved
+84%, p50 2.4s, $0.32. Those came from a substring scorer and are an upper bound.
 
-Examples: `TESL-42`, `DOCS-1`, `INVC-99`
+`eval/` has the current tools — `run_retrieval.py` for search alone,
+`run_answers.py` to generate, and `judge.py` for four Ragas metrics.
+`metrics/METRICS.md` records every result and every rejected experiment.
 
-Multiple PDFs can be uploaded under the same Case ID and will be queried together.
+Memory, measured in containers under load:
 
----
-
-## Deployment (Azure)
-
-Images are hosted on Azure Container Registry (`doclesnses.azurecr.io`) and run as Azure Container Apps.
-
-```powershell
-.\deploy.ps1
+```
+api        1.67 GB    the local reranker is 85% of it
+worker     1.69 GB    peaks while pdfplumber holds a 40MB PDF
+qdrant       83 MB
+postgres     65 MB
+valkey        5 MB
 ```
 
-**Container Apps:**
-- `vouch-server` — FastAPI + frontend
-- `vouch-worker` — RQ background worker
-
-Both share an Azure Files volume at `/app/temp_uploads` for PDF handoff between server and worker.
+8 GB of RAM for one machine running all five.
 
 ---
 
-## API Endpoints
+## Documentation
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/upload` | Upload a PDF with a Case ID |
-| `GET` | `/status/{job_id}` | Check PDF processing status |
-| `GET` | `/verify/{case_id}` | Check if a Case ID has documents |
-| `POST` | `/chat` | Ask a question about a Case ID |
-| `DELETE` | `/delete/{case_id}` | Delete all data for a Case ID |
+`CLAUDE.md` — the rules that do not bend, and why each exists.
+`claude_data/` — the original specs. Older than the code in places.

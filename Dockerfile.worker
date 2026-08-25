@@ -1,13 +1,21 @@
 FROM python:3.12-slim
 
-WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /srv
+
+RUN useradd --create-home --uid 10001 vouch
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ ./app/
-COPY run_worker.py .
+COPY --chown=vouch:vouch app/ ./app/
+COPY --chown=vouch:vouch run_worker.py .
 
-RUN mkdir -p temp_uploads
+# The same shared volume the API writes uploads into.
+RUN mkdir -p temp_uploads && chown vouch:vouch temp_uploads
+
+USER vouch
 
 CMD ["python", "run_worker.py"]

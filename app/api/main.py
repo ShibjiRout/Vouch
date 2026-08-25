@@ -1,19 +1,20 @@
-"""FastAPI application: startup, routes, static files."""
+"""FastAPI application: startup and routes.
+
+The API serves no pages. The frontend is a separate deployment on its
+own host, which is why CORS below is not decoration.
+"""
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import auth, chat, documents, threads, users
+from app.config import ALLOWED_ORIGINS
 from app.db import postgres as db
 from app.db.qdrant import ensure_collection
 from app.retrieval.rerank import warm
 from app.logging_config import get_logger, setup_logging
-
-FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 log = get_logger(__name__)
 
@@ -33,9 +34,13 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Vouch", version="2.0.0", lifespan=lifespan)
 
+# The frontend is on another host, so the browser will not send the
+# Authorization header without this. Name the origins in .env rather
+# than leaving "*" — with credentials that is a hole, and it is also
+# the one setting that breaks silently in the browser and nowhere else.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -63,8 +68,3 @@ def health() -> dict:
         log.exception("qdrant health check failed")
 
     return {"status": "ok" if all(checks.values()) else "degraded", **checks}
-
-
-# Static files MUST stay last. Mounting "/" catches every route
-# declared below it.
-app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

@@ -1,5 +1,5 @@
 [project]
-name = "04-doclense"
+name = "04-vouch"
 version = "0.1.0"
 description = "RAG document assistant — upload PDFs into a chat, ask questions, get cited answers"
 readme = "README.md"

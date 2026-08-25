@@ -10,7 +10,7 @@ from psycopg_pool import ConnectionPool
 
 from app.config import DATABASE_URL
 
-SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schema.sql"
+SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 pool = ConnectionPool(
     DATABASE_URL,

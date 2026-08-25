@@ -14,7 +14,7 @@ UPLOAD_DIR = Path(__file__).resolve().parents[1] / "temp_uploads"
 # External services
 # ---------------------------------------------------------------
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/doclense"
+    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/vouch"
 )
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
@@ -28,6 +28,14 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_MINUTES = int(os.getenv("JWT_EXPIRY_MINUTES", "60"))
 
+# Which sites the browser may call this API from. The frontend is
+# deployed separately, so its address goes here. Comma separated.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5500").split(",")
+    if origin.strip()
+]
+
 # ---------------------------------------------------------------
 # Observability
 # ---------------------------------------------------------------
@@ -35,7 +43,7 @@ JWT_EXPIRY_MINUTES = int(os.getenv("JWT_EXPIRY_MINUTES", "60"))
 # load_dotenv() above is what activates tracing. Nothing else to wire.
 # LANGCHAIN_* are still honoured as legacy aliases.
 LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
-LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "doclense")
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "vouch")
 LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
