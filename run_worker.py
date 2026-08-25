@@ -1,4 +1,4 @@
-﻿from app.services.redis_service import connection
+from app.services.redis_service import connection
 from rq import SimpleWorker, Queue
 
 queue = Queue(connection=connection)

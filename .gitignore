@@ -11,11 +11,14 @@ wheels/
 # Virtual environments
 .venv/
 venv/
+# ragas needs langchain-community < 0.4, which the app does not use
+.venv-eval/
 env/
 
 # Environment variables
 .env
 .env.*
+.env_copy
 !.env.example
 
 # Temp uploads
@@ -41,12 +44,20 @@ Thumbs.db
 *.log
 logs/
 
-# Test / evaluation output
-rag_evaluation_results.csv
-test_mongo.py
-print(client.server_info()['version'])Unable
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 scripts/
 
 # Azure / deployment
 *.pfx
 *.pem
+
+# Claude
+claude_data/
+CLAUDE.md
+
+# Eval fixtures, results and notes - local only
+test_data/
+metrics/

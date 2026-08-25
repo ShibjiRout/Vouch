@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Vouch</title>
+<style>
+  :root {
+    --paper:  #fbfbfa;
+    --sand:   #f6f5f2;
+    --ink:    #1a1a19;
+    --muted:  rgba(0,0,0,.45);
+    --line:   rgba(0,0,0,.1);
+    --accent: #3B6EE0;
+    --bad:    #B4472E;
+    --serif:  Georgia, "Times New Roman", serif;
+    --sans:   -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --mono:   ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 15px/1.65 var(--sans); -webkit-font-smoothing: antialiased;
+    display: grid; place-items: center; padding: 24px;
+    position: relative; overflow-x: hidden;
+  }
+
+  /* same robot as the landing page, quieter */
+  .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .bg img {
+    position: absolute; right: -8vw; top: 50%; transform: translateY(-50%);
+    width: min(80vw, 1100px); height: auto; opacity: .5;
+  }
+  .bg::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg,
+      rgba(251,251,250,.98) 30%, rgba(251,251,250,.8) 52%, rgba(251,251,250,.25) 100%);
+  }
+  @media (max-width: 820px) {
+    .bg img { right: -25%; width: 135vw; opacity: .3; }
+    .bg::after { background: linear-gradient(180deg,
+      rgba(251,251,250,.7) 0%, rgba(251,251,250,.95) 45%, var(--paper) 100%); }
+  }
+
+  .card {
+    position: relative; z-index: 2;
+    width: 400px; max-width: 100%;
+    background: #fff; border: 1px solid rgba(0,0,0,.12);
+    border-radius: 14px; box-shadow: 0 14px 44px rgba(0,0,0,.1);
+    padding: 30px 30px 26px;
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; justify-content: center; }
+  .logo .word { font: 400 23px/1 var(--serif); letter-spacing: .03em; }
+  .card > p.blurb {
+    margin: 10px 0 24px; text-align: center;
+    font: 400 12.5px/1.5 var(--mono); color: var(--muted);
+  }
+
+  .tabs { display: flex; gap: 4px; padding: 3px; background: var(--sand); border-radius: 9px; margin-bottom: 22px; }
+  .tabs button {
+    flex: 1; padding: 8px; border: 0; border-radius: 7px; cursor: pointer;
+    background: none; color: var(--muted); font: 500 13px/1 var(--sans);
+  }
+  .tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+  label {
+    display: block; margin-bottom: 5px;
+    font: 500 10.5px/1 var(--mono); letter-spacing: .1em;
+    text-transform: uppercase; color: rgba(0,0,0,.4);
+  }
+  .field { margin-bottom: 15px; }
+  input {
+    width: 100%; padding: 11px 13px; border-radius: 9px;
+    border: 1px solid rgba(0,0,0,.14); background: #fff; color: var(--ink);
+    font: 400 14px/1.3 var(--sans); outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  .hint { margin-top: 6px; font: 400 11px/1.5 var(--mono); color: var(--muted); }
+
+  .go {
+    width: 100%; margin-top: 6px; padding: 13px; border: 0; border-radius: 9px;
+    background: var(--accent); color: #fff; font: 600 14px/1 var(--sans); cursor: pointer;
+  }
+  .go:hover { background: #2f5fc9; }
+  .go[disabled] { background: rgba(0,0,0,.2); cursor: default; }
+
+  .error {
+    margin-top: 14px; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid rgba(180,71,46,.3); background: rgba(180,71,46,.06);
+    font-size: 13px; color: var(--bad); display: none;
+  }
+  .error.show { display: block; }
+
+  .back { margin-top: 18px; text-align: center; }
+  .back a { font: 400 11.5px/1 var(--mono); color: var(--muted); text-decoration: none; }
+  .back a:hover { color: var(--ink); }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <img src="bg2.webp" srcset="bg2-700.webp 700w, bg2.webp 1400w"
+       sizes="(max-width: 820px) 135vw, 80vw"
+       width="1400" height="764" alt="" decoding="async">
+</div>
+
+<div class="card">
+  <div class="logo">
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+      <path d="M9.5 2.6V5" stroke="#8a8a86" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="9.5" cy="1.9" r="1.15" fill="#3B6EE0"/>
+      <rect x="2.6" y="5" width="13.8" height="12.4" rx="3.6" stroke="#1a1a19" stroke-width="1.6"/>
+      <circle cx="7" cy="10.2" r="1.35" fill="#1a1a19"/>
+      <circle cx="12" cy="10.2" r="1.35" fill="#1a1a19"/>
+      <path d="M7.2 13.9h4.6" stroke="#8a8a86" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M2.6 9.4H1.1M16.4 9.4h1.5" stroke="#8a8a86" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="18.6" cy="17.4" r="6.1" fill="#fbfbfa" fill-opacity=".9" stroke="#3B6EE0" stroke-width="1.7"/>
+      <path d="M23.1 21.9L26.4 25.2" stroke="#3B6EE0" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <span class="word">Vouch</span>
+  </div>
+  <p class="blurb" id="blurb">Sign in to your documents</p>
+
+  <div class="tabs">
+    <button id="tabSignin" class="on">Sign in</button>
+    <button id="tabRegister">Create a company</button>
+  </div>
+
+  <form id="form" novalidate>
+    <div class="field" id="companyField" hidden>
+      <label for="company">Company</label>
+      <input id="company" autocomplete="organization" placeholder="SSR Analytics">
+      <div class="hint">Leave blank and we use your email domain.</div>
+    </div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <div class="hint" id="pwHint" hidden>At least 8 characters.</div>
+    </div>
+
+    <button class="go" id="go" type="submit">Sign in</button>
+    <div class="error" id="error"></div>
+  </form>
+
+  <div class="back"><a href="index.html">← Back to the site</a></div>
+</div>
+
+<script type="module">
+  import { api, token } from "./api.js";
+
+  const form = document.getElementById("form");
+  const error = document.getElementById("error");
+  const go = document.getElementById("go");
+  const email = document.getElementById("email");
+  const password = document.getElementById("password");
+  const company = document.getElementById("company");
+
+  let registering = false;
+
+  function setMode(next) {
+    registering = next;
+    document.getElementById("tabSignin").classList.toggle("on", !next);
+    document.getElementById("tabRegister").classList.toggle("on", next);
+    document.getElementById("companyField").hidden = !next;
+    document.getElementById("pwHint").hidden = !next;
+    document.getElementById("blurb").textContent = next
+      ? "The first account is the admin, who adds everyone else"
+      : "Sign in to your documents";
+    go.textContent = next ? "Create company" : "Sign in";
+    password.autocomplete = next ? "new-password" : "current-password";
+    error.classList.remove("show");
+  }
+
+  document.getElementById("tabSignin").onclick = () => setMode(false);
+  document.getElementById("tabRegister").onclick = () => setMode(true);
+
+  // Already signed in — no reason to make them type it again.
+  if (token.get()) location.href = "app.html";
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    error.classList.remove("show");
+
+    if (!email.value.trim() || !password.value) {
+      return show("Enter your email and password");
+    }
+
+    go.disabled = true;
+    go.textContent = registering ? "Creating…" : "Signing in…";
+
+    try {
+      const reply = registering
+        ? await api.post("/auth/register", {
+            email: email.value.trim(),
+            password: password.value,
+            tenant_name: company.value.trim() || null,
+          })
+        // Login is form-encoded, and its email field is called username.
+        : await api.form("/auth/login", {
+            username: email.value.trim(),
+            password: password.value,
+          });
+
+      token.set(reply.access_token);
+      location.href = "app.html";
+    } catch (err) {
+      show(err.message);
+      go.disabled = false;
+      go.textContent = registering ? "Create company" : "Sign in";
+    }
+  };
+
+  function show(message) {
+    error.textContent = message;
+    error.classList.add("show");
+  }
+</script>
+
+</body>
+</html>

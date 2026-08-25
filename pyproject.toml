@@ -1,28 +1,31 @@
 [project]
-name = "04-doclense"
+name = "04-vouch"
 version = "0.1.0"
-description = "Add your description here"
+description = "RAG document assistant — upload PDFs into a chat, ask questions, get cited answers"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "datasets>=4.8.4",
-    "dnspython>=2.8.0",
+    "bcrypt>=4.2.0",
     "fastapi>=0.136.1",
+    "fastembed>=0.5.0",
     "langchain>=1.2.15",
-    "langchain-community>=0.4.1",
     "langchain-openai>=1.2.1",
     "langchain-text-splitters>=1.1.2",
     "langgraph>=1.1.9",
-    "motor>=3.7.1",
-    "pandas>=3.0.2",
-    "pymongo[srv]>=4.17.0",
-    "pymupdf>=1.27.2.3",
-    "pypdf>=6.10.2",
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "langmem>=0.0.27",
+    "pdfplumber>=0.11.0",
+    "psycopg[binary]>=3.2.0",
+    "pyjwt>=2.10.0",
     "python-dotenv>=1.2.2",
     "python-multipart>=0.0.26",
     "qdrant-client>=1.17.1",
-    "ragas>=0.4.3",
     "redis>=7.4.0",
     "rq>=2.8.0",
     "uvicorn>=0.46.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
 ]
