@@ -6,6 +6,10 @@ requireToken();
 
 const POLL_MS = 2000;
 
+// Cycled while waiting for an answer. Deliberately says nothing about
+// what the agent is doing — the page cannot know whether it searched.
+const WAITING_WORDS = ["Vouching", "Cogitating", "Ruminating", "Perusing"];
+
 const state = {
   me: null,
   chats: [],
@@ -386,10 +390,19 @@ async function sendMessage() {
   if (thread.querySelector(".empty")) thread.replaceChildren();
   thread.append(drawAsk(text));
 
+  // The page cannot know whether the agent will search until the answer
+  // arrives, so the wording says nothing about what is happening.
   const waiting = el("div", "working");
-  waiting.append(el("span", null, "Searching documents"), el("i"));
+  const label = el("span", null, WAITING_WORDS[0]);
+  waiting.append(label, el("i"));
   thread.append(waiting);
   scrollDown();
+
+  let word = 0;
+  const cycling = setInterval(() => {
+    word = (word + 1) % WAITING_WORDS.length;
+    label.textContent = WAITING_WORDS[word];
+  }, 1800);
 
   try {
     const threadId = await ensureChat(text);
@@ -403,6 +416,7 @@ async function sendMessage() {
   } catch (err) {
     waiting.replaceWith(el("div", "oops", err.message));
   } finally {
+    clearInterval(cycling);
     state.busy = false;
     $("send").disabled = false;
     scrollDown();
