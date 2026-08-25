@@ -1,6 +1,11 @@
 // The only place that knows about the token, the base path, and the
 // shape of a FastAPI error. Everything else calls api.get / api.post.
 
+// The API is a separate deployment on its own host, so every call needs
+// the full address. Served from the same origin (opening the folder
+// locally against a dev API), leave it empty and paths stay relative.
+const BASE = "https://vouchapi.voidgeek.space";
+
 const TOKEN_KEY = "vouch.token";
 
 export const token = {
@@ -44,7 +49,7 @@ async function request(path, { method = "GET", json, form, file } = {}) {
     body.append("file", file);
   }
 
-  const response = await fetch(path, { method, headers, body });
+  const response = await fetch(BASE + path, { method, headers, body });
 
   // A 401 while holding a token means it expired. A 401 without one is
   // a wrong password on the login page, which that page reports itself.
